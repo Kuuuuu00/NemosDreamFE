@@ -103,8 +103,8 @@ function makeBatter(seed: string, order: number, overrides: Partial<Batter> = {}
 function flagshipStaff(): TeamStaff {
   const currentPitcher: Pitcher = {
     pitcherId: 60841,
-    name: "김정운",
-    throws: "R",
+    name: "류현진",
+    throws: "L",
     photoUrl: null,
     season: { era: 3.24, whip: 1.18, ip: 52.1, so: 61, bb: 24, g: 55 },
     vsBatterHand: {
@@ -126,12 +126,12 @@ function flagshipStaff(): TeamStaff {
     qualityP: 0.432,
   };
   const seeds: [string, number, number][] = [
-    ["주현상", 2.41, 0.82],
-    ["박상현", 3.05, 0.74],
-    ["우규민", 3.88, 0.63],
-    ["김재윤", 2.94, 0.79],
-    ["성재헌", 4.12, 0.55],
-    ["전용주", 3.61, 0.68],
+    ["정우주", 2.41, 0.82],
+    ["김서현", 3.05, 0.74],
+    ["박상원", 3.88, 0.63],
+    ["한승혁", 2.94, 0.79],
+    ["김범수", 4.12, 0.55],
+    ["이민우", 3.61, 0.68],
   ];
   const bullpen = seeds.map(([name, era, quality]) =>
     makePitcher(`HH-bullpen-${name}`, {
@@ -143,9 +143,9 @@ function flagshipStaff(): TeamStaff {
   );
   return {
     usageToday: [
-      { name: "문동주", role: "선발", pitches: 82, inningsLabel: "1~5회" },
-      { name: "김민수", pitches: 14, inningsLabel: "6회" },
-      { name: "박영현", pitches: 9, inningsLabel: "6회" },
+      { name: "와이스", role: "선발", pitches: 82, inningsLabel: "1~5회" },
+      { name: "주현상", pitches: 14, inningsLabel: "6회" },
+      { name: "문동주", pitches: 9, inningsLabel: "6회" },
     ],
     current: currentPitcher,
     bullpen,
@@ -172,19 +172,19 @@ export function buildStaff(myTeam: string, oppTeam: string): TeamStaff {
 /** Hardcoded to match the design mock exactly: kt(offense) lineup vs 김정운. */
 function flagshipLineup(): Batter[] {
   const names: [string, number, "L" | "R" | "S", number, string][] = [
-    ["배승수", 4, "L", 0, "1B"],
-    ["문현빈", 5, "L", 0, "LF"],
-    ["채은성", 6, "R", 0, "1B"],
-    ["이진영", 7, "L", 0, "RF"],
+    ["강백호", 4, "L", 0, "1B"],
+    ["황재균", 5, "L", 0, "LF"],
+    ["안현민", 6, "R", 0, "1B"],
+    ["장성우", 7, "L", 0, "RF"],
   ];
   return names.map(([name, order, hand]) => {
     const rand = seededRandom(`KT-${name}`);
     const isCurrent = order === 4;
     const stats: Record<string, { avg: number; ops: number }> = {
-      배승수: { avg: 0.286, ops: 0.853 },
-      문현빈: { avg: 0.271, ops: 0.742 },
-      채은성: { avg: 0.294, ops: 0.831 },
-      이진영: { avg: 0.238, ops: 0.655 },
+      강백호: { avg: 0.286, ops: 0.853 },
+      황재균: { avg: 0.271, ops: 0.742 },
+      안현민: { avg: 0.294, ops: 0.831 },
+      장성우: { avg: 0.238, ops: 0.655 },
     };
     const s = stats[name];
     return {
@@ -233,7 +233,7 @@ export function buildLineup(myTeam: string, oppTeam: string): Batter[] {
 // AtBatLogCard, CurrentPitcherCard) — never U+2212 MINUS SIGN, which isn't
 // covered by the Pretendard dynamic-subset webfont and renders as a tofu box.
 export const AT_BAT_LOG_FLAVOR: { batter: string; outcome: string; delta: string }[] = [
-  { batter: "배승수", outcome: "2루타", delta: "-6.2%" },
+  { batter: "장진혁", outcome: "2루타", delta: "-6.2%" },
   { batter: "강백호", outcome: "삼진", delta: "+3.1%" },
   { batter: "황재균", outcome: "볼넷", delta: "-2.4%" },
   { batter: "김상수", outcome: "3루 땅볼", delta: "+2.8%" },
