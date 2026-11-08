@@ -7,12 +7,14 @@ interface StepCardProps {
   label: string;
   open: boolean;
   summary?: ReactNode;
+  /** Replaces the placeholder circle in the collapsed row (e.g. a team emblem). */
+  icon?: ReactNode;
   onReopen: () => void;
   children: ReactNode;
   className?: string;
 }
 
-export function StepCard({ label, open, summary, onReopen, children, className }: StepCardProps) {
+export function StepCard({ label, open, summary, icon, onReopen, children, className }: StepCardProps) {
   return (
     <Card className={cn("p-[18px_20px]", className)}>
       <AnimatePresence initial={false} mode="wait">
@@ -40,7 +42,7 @@ export function StepCard({ label, open, summary, onReopen, children, className }
           >
             <div className="flex min-w-0 items-center gap-3">
               <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
-              <span className="h-[26px] w-[26px] shrink-0 rounded-full bg-muted" />
+              {icon ?? <span className="h-[26px] w-[26px] shrink-0 rounded-full bg-muted" />}
               <span className="truncate text-[15px] font-medium">{summary}</span>
               <span className="shrink-0 text-[13px] text-primary">✓</span>
             </div>

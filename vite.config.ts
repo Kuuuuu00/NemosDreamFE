@@ -10,4 +10,8 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
+  server: {
+    // WSL2 환경에서 Windows 브라우저가 접속할 수 있도록 모든 인터페이스에 바인딩
+    host: true,
+  },
 });

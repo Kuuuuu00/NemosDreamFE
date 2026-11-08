@@ -1,0 +1,11 @@
+HTTP/1.1 200 
+Server: nginx/1.28.3 (Ubuntu)
+Date: Sun, 08 Nov 2026 15:38:57 GMT
+Content-Type: application/json
+Content-Length: 433
+Connection: keep-alive
+Vary: Origin
+Vary: Access-Control-Request-Method
+Vary: Access-Control-Request-Headers
+Access-Control-Allow-Origin: http://localhost:5173
+

@@ -1,0 +1,1 @@
+{"leverage":{"league_avg":1.0,"max":5.0,"bands":[{"label":"저","min":0.0,"max":0.85},{"label":"중","min":0.85,"max":1.5},{"label":"고","min":1.5,"max":3.0},{"label":"매우 높음","min":3.0,"max":5.0}]},"model":{"score_unit":"wpa_per_pa","description":"Contextual Bandit 예상 성과. 투수 관점, 높을수록 좋음","provisional":true},"li_source_note":"상황 중요도. 문형우 외(2016) 승리확률 테이블 기반"}

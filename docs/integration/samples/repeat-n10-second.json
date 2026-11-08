@@ -1,0 +1,1 @@
+{"n":10,"runs_allowed":{"histogram":{"0":5,"1":1,"2":1,"3":1,"4":1,"6":1},"median":0.5,"mean":1.6},"final_we":{"median":1.0,"p10":0.0,"p90":1.0},"win_rate":0.6,"better_than_actual_rate":0.5,"actual":{"runs_allowed":1,"result":"win"},"elapsed_ms":512}

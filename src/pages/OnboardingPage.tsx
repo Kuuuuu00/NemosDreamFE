@@ -1,3 +1,4 @@
+import { TeamEmblem } from "@/components/common/TeamEmblem";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -123,12 +124,18 @@ export default function OnboardingPage() {
           </Button>
         </div>
 
-        <StepCard label="내 팀" open={s1.open} onReopen={s1.onReopen} summary={myTeamName}>
+        <StepCard label="내 팀" open={s1.open} onReopen={s1.onReopen}
+          summary={myTeamName}
+          icon={myTeam ? <TeamEmblem code={myTeam} size={26} ring /> : undefined}
+        >
           <TeamGrid teams={teams} selected={myTeam} onSelect={pickMyTeam} />
         </StepCard>
 
         {done1 && (
-          <StepCard label="상대 팀" open={s2.open} onReopen={s2.onReopen} summary={oppTeamName}>
+          <StepCard label="상대 팀" open={s2.open} onReopen={s2.onReopen}
+            summary={oppTeamName}
+            icon={oppTeam ? <TeamEmblem code={oppTeam} size={26} ring /> : undefined}
+          >
             <TeamGrid teams={opponentTeams} selected={oppTeam} onSelect={pickOppTeam} />
           </StepCard>
         )}
