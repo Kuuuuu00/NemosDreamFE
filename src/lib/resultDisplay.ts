@@ -29,7 +29,9 @@ function baseStateLabel(base: BaseState): string {
   }
 }
 
-export function situationLabel(inning: number, half: Half, outCount: number, base: BaseState): string {
+export function situationLabel(inning: number, half: Half, outCount: number | null, base: BaseState | null): string {
+  // TODO(backend): out_count / base_state (REPORT #2). Until the server sends them, show inning/half only.
+  if (outCount === null || base === null) return inningHalfLabel(inning, half);
   const baseTxt = baseStateLabel(base);
   return `${inning}회${halfLabel(half)} ${outCountLabel(outCount)}${baseTxt ? ` ${baseTxt}` : ""}`;
 }

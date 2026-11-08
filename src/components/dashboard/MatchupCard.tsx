@@ -36,7 +36,8 @@ export function MatchupCard({ batter, pitcherName }: { batter: Batter; pitcherNa
   );
 }
 
-function fmt(v: number) {
+function fmt(v: number | null) {
+  if (v === null) return "—";
   return v.toFixed(3).replace(/^0/, "");
 }
 

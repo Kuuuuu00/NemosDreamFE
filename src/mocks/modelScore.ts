@@ -33,7 +33,7 @@ export function computeRanking(
     const noise = seededRandom(`${mode}|${sid}|${p.pitcherId}`)() - 0.5; // ±0.5
     // Expected WPA per PA (fraction): a small positive number, wider spread
     // in higher-leverage spots.
-    const modelScore = 0.002 + 0.01 * p.qualityP + 0.0035 * noise * (0.6 + Math.min(state.leverageIndex, 3) / 3);
+    const modelScore = 0.002 + 0.01 * (p.qualityP ?? 0) + 0.0035 * noise * (0.6 + Math.min(state.leverageIndex, 3) / 3);
     return { p, modelScore: +modelScore.toFixed(5) };
   });
   scored.sort((a, b) => b.modelScore - a.modelScore || a.p.pitcherId - b.p.pitcherId);
@@ -48,12 +48,12 @@ export function computeRanking(
       modelScore,
       modelRank: i + 1,
       era: p.season.era,
-      qualityPercentile: qualityPercentileOf(p.qualityP),
+      qualityPercentile: qualityPercentileOf(p.qualityP ?? 0),
       matchupVsBatter: handMatchup(p.throws, state.currentBatter.hitType),
       ...(hasFatigue
         ? {
-            consecutiveDays: p.workload.daysRest === 0 ? Math.min(3, Math.max(1, p.workload.appearancesLast7d)) : 0,
-            pitchesLast3d: p.workload.appearancesLast7d * 14 + (p.workload.daysRest === 0 ? 12 : 0),
+            consecutiveDays: p.workload.daysRest === 0 ? Math.min(3, Math.max(1, p.workload.appearancesLast7d ?? 0)) : 0,
+            pitchesLast3d: (p.workload.appearancesLast7d ?? 0) * 14 + (p.workload.daysRest === 0 ? 12 : 0),
             daysSinceLastApp: p.workload.daysRest,
           }
         : {}),

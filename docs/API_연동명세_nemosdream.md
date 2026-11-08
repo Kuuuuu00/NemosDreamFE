@@ -831,7 +831,7 @@ export interface RepeatResponse {
 
 - [ ] 매 타석 후 헤더 스코어 == 라인스코어 R 합계 (서버 값 그대로 쓰면 자동 성립. 깨지면 서버 버그로 보고)
 - [ ] `state.we_perspective`, `we-trace.perspective` == `my_team`
-- [ ] 같은 투수 유지만 반복하면 `is_diverged` false 유지, `source: "actual"`, `we-trace.simulated` 빈 배열
+- [ ] 실제 감독의 선택과 같은 투수를 계속 고르면 `is_diverged` false 유지, `source: "actual"`, `we-trace.simulated` 빈 배열. **"현재 투수 유지"가 곧 실제 선택은 아니다**: `recommend.actual_decision.was_change === true`인 타석에서 유지하면 그 순간 분기한다(실측, 7회말 시작 샘플). 기대값은 `actual_decision` 기준으로 판정
 - [ ] 다른 투수 선택 직후 `is_diverged` true, `diverged_at` 채워짐, 이후 `simulated` 곡선이 그려짐
 - [ ] 3아웃 → `my_role: "offense"` → advance-half → 다음 수비 반이닝 `out_count 0`, `base_state "0"`
 - [ ] undo 후 같은 선택 → 같은 결과

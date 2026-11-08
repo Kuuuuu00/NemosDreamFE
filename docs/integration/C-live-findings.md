@@ -132,3 +132,7 @@
 - 이 샘플은 1경기·7회 시작이라, **1~6회에 이미 교체되어 내려간 다른 불펜**이 `used`로 오는지는 이 데이터로 판단할 수 없다(해당 투수가 있었는지 불명). 다른 경기·시작 이닝(8~9회)으로 추가 확인이 필요하다 → V1 플레이스루에서 확인.
 - 세션 이전 구간(선발 포함)의 등판 이력은 API에 없다 → REPORT 백엔드 요청 항목.
 - `bullpen_used.total` 모수 불일치는 REPORT 백엔드 확인 항목.
+
+## 8. "현재 투수 유지"는 항상 실제 선택이 아니다 (3-1 smoke 실측)
+
+세션 시작 타석(7회말)의 `recommend.actual_decision`이 `{pitcher_id: 53754(김서현), was_change: true}`였다. 이때 현재 투수(박상원)의 id로 `simulate-pa`를 보내면 첫 타석부터 `source: "simulated"`, `is_diverged: true`가 된다. 실제 감독의 선택(김서현)을 고른 경우에만 `source: "actual"` (`samples/simulate-pa-1-actual.json`). 서버 동작은 §3-7 설명문과 일치하며, 연동 명세 §4-1 체크리스트 문구만 정정했다. UI 영향: 첫 결정에서 "유지"를 눌러도 분기 표시(`is_diverged`)가 즉시 켜질 수 있다.

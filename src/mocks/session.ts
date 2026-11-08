@@ -493,19 +493,19 @@ export function simulatePa(sessionId: string, pitcherId: number): PAResult {
 
   // est_pitch_count = pa_faced_today * avg_pitches_per_pa, accumulated per
   // PA the mound pitcher faces.
-  const paFacedToday = pitcher.workload.paFacedToday + 1;
+  const paFacedToday = (pitcher.workload.paFacedToday ?? 0) + 1;
   pitcher = {
     ...pitcher,
     workload: {
       ...pitcher.workload,
       paFacedToday,
-      estPitchCount: Math.round(paFacedToday * pitcher.workload.avgPitchesPerPa),
+      estPitchCount: Math.round(paFacedToday * (pitcher.workload.avgPitchesPerPa ?? 0)),
     },
   };
   s.staff = { ...s.staff, current: pitcher };
 
   const rand = seededRandom(`${sessionId}-pa-${s.batterIdx}-${s.state.outCount}-${Date.now()}`);
-  const probs = adjustProbsForQuality(pitcher.qualityP);
+  const probs = adjustProbsForQuality(pitcher.qualityP ?? 0);
   const outcome = sampleOutcome(probs, rand);
   const def = OUTCOME_DEFS[outcome];
   const { base, outs, runs } = applyOutcome(s.state.baseState, s.state.outCount, outcome);
@@ -514,9 +514,9 @@ export function simulatePa(sessionId: string, pitcherId: number): PAResult {
     ...pitcher,
     workload: {
       ...pitcher.workload,
-      hitsAllowed: pitcher.workload.hitsAllowed + (HIT_OUTCOMES.has(outcome) ? 1 : 0),
-      walksAllowed: pitcher.workload.walksAllowed + (outcome === "BB" ? 1 : 0),
-      outsRecorded: pitcher.workload.outsRecorded + Math.max(0, Math.min(3, outs) - s.state.outCount),
+      hitsAllowed: (pitcher.workload.hitsAllowed ?? 0) + (HIT_OUTCOMES.has(outcome) ? 1 : 0),
+      walksAllowed: (pitcher.workload.walksAllowed ?? 0) + (outcome === "BB" ? 1 : 0),
+      outsRecorded: (pitcher.workload.outsRecorded ?? 0) + Math.max(0, Math.min(3, outs) - s.state.outCount),
     },
   };
   s.staff = { ...s.staff, current: pitcher };
@@ -630,7 +630,7 @@ export function simulatePa(sessionId: string, pitcherId: number): PAResult {
     baseStateBefore: situationBaseState,
     pitcherId: pitcher.pitcherId,
     pitcherName: pitcher.name,
-    qualityP: pitcher.qualityP,
+    qualityP: pitcher.qualityP ?? 0,
     li: liAtDecision,
     wasChange: changed,
     modelRankingAtChange,
@@ -646,6 +646,7 @@ export function simulatePa(sessionId: string, pitcherId: number): PAResult {
     description: def.description,
     probability: probs[outcome],
     probs,
+    source: "simulated",
     runsScored: runs,
     deltaWeAttacker: +(-deltaWeDefender).toFixed(3),
     deltaWeDefender: +deltaWeDefender.toFixed(3),
@@ -943,8 +944,10 @@ export function buildResult(sessionId: string): SimulationResult {
     startInning: s.startInning,
     startHalf: myDefensiveHalf,
     myFinalScore,
+    result: myWin === null ? "tie" : myWin ? "win" : "loss",
     myWin,
     actualFinalScore,
+    actualResult: actualWin === null ? "tie" : actualWin ? "win" : "loss",
     actualWin,
     runsAllowedInRange: { mine: runsAllowedMine, actual: runsAllowedActual },
     finalWeDiff,
@@ -1032,7 +1035,7 @@ export function repeatSimulation(sessionId: string, n: number): RepeatResult {
         }
 
         const rand = seededRandom(`${sessionId}-repeat-${iter}-${paSeq}`);
-        const probs = adjustProbsForQuality(currentPitcher.qualityP);
+        const probs = adjustProbsForQuality(currentPitcher.qualityP ?? 0);
         const outcome = sampleOutcome(probs, rand);
         const { base, outs, runs } = applyOutcome(baseState, outCount, outcome);
         runsAllowed += runs;

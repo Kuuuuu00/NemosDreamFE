@@ -12,15 +12,24 @@ export type Role = "defense" | "offense";
 export type PAOutcomeCode = "1B" | "2B" | "3B" | "HR" | "BB" | "GO" | "FO" | "GDP" | "SO";
 export type BullpenSource = "actual" | "estimated";
 
+/** Onboarding selection → one `POST /sessions` call. */
+export interface SessionParams {
+  myTeam: string;
+  oppTeam: string;
+  gameId: string;
+  startInning: number;
+}
+
 export interface Team {
   code: string;
   name: string;
   logoUrl: string | null;
 }
 
+/** `era` / `whip` are null when the pitcher has no season innings yet (live samples). */
 export interface SeasonPitchingStats {
-  era: number;
-  whip: number;
+  era: number | null;
+  whip: number | null;
   ip: number;
   so: number;
   bb: number;
@@ -28,22 +37,27 @@ export interface SeasonPitchingStats {
 }
 
 export interface HandSplit {
-  avg: number;
-  woba: number;
-  iso: number;
+  avg: number | null;
+  woba: number | null;
+  iso: number | null;
   pa: number;
 }
 
+/** Every field may be null from the real backend (render "—"). */
 export interface Workload {
-  paFacedToday: number;
-  estPitchCount: number;
-  avgPitchesPerPa: number;
-  daysRest: number;
-  appearancesLast7d: number;
-  /** This appearance only (reset each time the pitcher enters). */
-  hitsAllowed: number;
-  walksAllowed: number;
-  outsRecorded: number;
+  paFacedToday: number | null;
+  estPitchCount: number | null;
+  avgPitchesPerPa: number | null;
+  daysRest: number | null;
+  appearancesLast7d: number | null;
+  consecutiveDays?: number | null;
+  pitchesLast3d?: number | null;
+  /** This appearance only (reset each time the pitcher enters). The real
+   * backend reports these via `RecommendResponse.currentPitcher.thisOuting`
+   * instead, so they're null on real-API `Pitcher`s. */
+  hitsAllowed: number | null;
+  walksAllowed: number | null;
+  outsRecorded: number | null;
 }
 
 export type Availability = "available" | "used" | "current" | "unavailable";
@@ -54,28 +68,31 @@ export interface Pitcher {
   throws: Hand;
   photoUrl: string | null;
   season: SeasonPitchingStats;
-  vsBatterHand: Record<"L" | "R", HandSplit>;
+  /** A side is null when there's no sample against that hand. */
+  vsBatterHand: Record<"L" | "R", HandSplit | null>;
   workload: Workload;
   availability: Availability;
   unavailableReason: string | null;
-  /** Normalized [0,1]. Reference info only — never used to rank. */
-  qualityP: number;
+  /** Normalized [0,1]. Reference info only — never used to rank. The real
+   * backend doesn't send it (candidates carry `qualityPercentile` instead) → null. */
+  qualityP: number | null;
 }
 
+/** Rate stats are null before the batter has season data (live samples, opening series). */
 export interface SeasonBattingStats {
-  avg: number;
-  obp: number;
-  slg: number;
-  ops: number;
+  avg: number | null;
+  obp: number | null;
+  slg: number | null;
+  ops: number | null;
   hr: number;
 }
 
 export interface MatchupStats {
   ab: number;
   h: number;
-  avg: number;
-  woba: number;
-  iso: number;
+  avg: number | null;
+  woba: number | null;
+  iso: number | null;
 }
 
 export interface Batter {
@@ -86,7 +103,7 @@ export interface Batter {
   order: number;
   position: string;
   season: SeasonBattingStats;
-  recentAvg: number;
+  recentAvg: number | null;
   vsCurrentPitcher: MatchupStats | null;
   today: { ab: number; h: number; rbi: number; log: string[] };
 }
@@ -94,9 +111,10 @@ export interface Batter {
 export interface LineScore {
   away: (number | null)[];
   home: (number | null)[];
+  /** `R/H/E/B` are fixed uppercase wire keys, kept as-is. `E` can be null. */
   totals: {
-    away: { R: number; H: number; E: number; B: number };
-    home: { R: number; H: number; E: number; B: number };
+    away: { R: number; H: number; E: number | null; B: number };
+    home: { R: number; H: number; E: number | null; B: number };
   };
 }
 
@@ -116,8 +134,9 @@ export interface GameState {
   opponentTeam: string;
   myRole: Role;
   /** Not in the spec's GameState example, but the linescore's away/home rows
-   * need a home/away team code to label against — added as a minimal,
-   * backend-compatible extension. */
+   * need a home/away team code to label against. The real backend doesn't
+   * send them yet (REPORT #1) — the adapter injects them from the games
+   * response saved at session start; it prefers server values when present. */
   homeTeam: string;
   awayTeam: string;
 
@@ -163,8 +182,11 @@ export interface PAResult {
   runsScored: number;
   deltaWeAttacker: number;
   deltaWeDefender: number;
+  /** `actual` = replay of the real game, `simulated` = sampled (after diverging). */
+  source: "actual" | "simulated";
   nextState: GameState;
-  /** Present only when this PA ended the half-inning and the intervening
+  /** Mock-only. The real backend never sets this — the offense half is a
+   * separate `advanceHalf` call. Present only when this PA ended the half-inning and the intervening
    * offense half was auto-played (i.e. not present on game-ending PAs). */
   offenseHalfSummary?: OffenseHalfSummary;
 }
@@ -177,7 +199,11 @@ export interface LeverageBandDef {
 
 export interface AppConfig {
   leverage: { leagueAvg: number; max: number; bands: LeverageBandDef[] };
-  qualityP: { min: number; max: number; description: string };
+  /** Mock-only; the real `/config` has no such block. */
+  qualityP?: { min: number; max: number; description: string };
+  /** Real `/config` only. `provisional: true` → show the "임시 점수" badge. */
+  model?: { scoreUnit: string; description: string; provisional: boolean };
+  liSourceNote?: string;
 }
 
 /** One line of "오늘 투수 운용" (today's pitching usage timeline) — the
@@ -219,7 +245,17 @@ export interface ActualDecision {
   pitcherId: number;
   name: string;
   wasChange: boolean;
-  rankInModel: number;
+  /** Real backend doesn't send it (REPORT: actual_decision.model_rank). */
+  rankInModel?: number | null;
+}
+
+/** This outing's line for the pitcher currently on the mound (real backend only). */
+export interface ThisOuting {
+  pitches: number;
+  outs: number;
+  hitsAllowed: number;
+  walks: number;
+  matchupVsBatter: "favorable" | "neutral" | "unfavorable" | null;
 }
 
 export interface RecommendResponse {
@@ -229,12 +265,27 @@ export interface RecommendResponse {
   bullpenSummary: { available: number; used: number; total: number };
   bullpenSource: BullpenSource;
   actualDecision: ActualDecision | null;
+  /** Dev-mode badge. */
+  source?: "precomputed" | "live" | "mock";
+  /** Real backend only; mock leaves it undefined. */
+  thisOuting?: ThisOuting | null;
 }
 
 export interface AdvanceHalfSummary {
   runs: number;
   hits: number;
-  paLog: { batter: string; outcome: PAOutcomeCode; description: string }[];
+  paLog: {
+    batterId?: number;
+    batter: string;
+    outcome: PAOutcomeCode;
+    description: string;
+    /** TODO(backend): server `pa_log[].runs_scored` (REPORT #3). Absent today. */
+    runsScored?: number | null;
+    /** My-team-perspective WE change for this PA. Server `delta_we` when sent,
+     * else derived from `weTrace[i+1] - weTrace[i]` (TODO(backend), REPORT #3). */
+    deltaWe?: number | null;
+  }[];
+  /** My-team perspective; length = paLog.length + 1, [0] = WE at half start. */
   weTrace: number[];
   source: "actual" | "simulated";
 }
@@ -263,6 +314,8 @@ export interface WeTraceResponse {
 export interface PitcherUsageSegment {
   pitcherId: number;
   name: string;
+  /** Estimated pitch count (real backend `pitches_est`); undefined in mock. */
+  pitchesEst?: number;
   fromInning: number;
   fromHalf: Half;
   toInning: number;
@@ -294,21 +347,33 @@ export interface DecisionModelRank {
 export interface DecisionLogEntry {
   inning: number;
   half: Half;
-  outCountBefore: number;
-  baseStateBefore: BaseState;
+  /** TODO(backend): server `out_count` / `base_state` (REPORT #2). Null from the real backend today → show inning/half only. */
+  outCountBefore: number | null;
+  baseStateBefore: BaseState | null;
   li: number;
   /** Model ranking of every available reliever at that moment (rank asc). */
   modelRanking: DecisionModelRank[];
   chosenPitcherId: number;
-  /** Real manager's choice at this decision point, or `null` past the
-   * divergence point (only the session's first change is ever comparable —
-   * see plan notes). */
+  /** Real manager's choice at this decision point. The mock returns `null`
+   * past the divergence point; the real backend fills it in anyway. */
   actualPitcherId: number | null;
+  /** Real backend only (undefined in mock). `isChange === false` = kept the
+   * current pitcher; the result table shows only changes by default. */
+  isChange?: boolean;
+  chosenName?: string;
+  actualName?: string | null;
+  chosenModelRank?: number | null;
+  actualModelRank?: number | null;
+  /** Model's #1 at that moment, or null while the backend's model ranking is unavailable. */
+  modelTop?: { pitcherId: number; name: string } | null;
   outcome: PAOutcomeCode;
   outcomeLabel: string;
-  runsScored: number;
+  /** Not sent per PA by the real backend. */
+  runsScored: number | null;
   deltaWeDefender: number;
 }
+
+export type ResultKind = "win" | "loss" | "tie" | "in_progress";
 
 export interface SimulationResult {
   date: string;
@@ -318,9 +383,13 @@ export interface SimulationResult {
   startInning: number;
   startHalf: Half;
   myFinalScore: { mine: number; opp: number };
-  /** `null` = tie — possible since extra innings aren't modeled (§9회 종료 동점). */
+  /** Distinguishes a tie from an in-progress game (`myWin: boolean|null` couldn't). */
+  result: ResultKind;
+  /** @deprecated TODO(3-2): use `result`. Derived: win→true, loss→false, else null. Removed once result screens migrate. */
   myWin: boolean | null;
   actualFinalScore: { mine: number; opp: number };
+  actualResult: ResultKind;
+  /** @deprecated TODO(3-2): use `actualResult`. */
   actualWin: boolean | null;
   runsAllowedInRange: { mine: number; actual: number };
   finalWeDiff: number;
@@ -337,10 +406,13 @@ export interface SimulationResult {
   modelComparison: {
     topK: number;
     decisionCount: number;
-    myWithinTopK: number;
+    /** null while the backend's model ranking is unavailable → summary falls back to `sameAsActual`. */
+    myWithinTopK: number | null;
     /** Decisions where the real manager's choice is known (first change only). */
     actualComparableCount: number;
-    actualWithinTopK: number;
+    actualWithinTopK: number | null;
+    /** Real backend only: decisions identical to the real manager's. */
+    sameAsActual?: number;
   };
 }
 
@@ -358,20 +430,34 @@ export interface RepeatResult {
   p90WE: number;
   /** P(내 실점 < 실제 실점) — strict. */
   probBetterThanActual: number;
-  probSameAsActual: number;
+  /** Mock-only. The real backend gives `winRate` / `betterThanActualRate` instead. */
+  probSameAsActual?: number;
+  winRate?: number;
+  meanRunsAllowed?: number;
+  elapsedMs?: number;
   n: number;
-  myActualRuns: number;
+  /** My playthrough's runs allowed (from /result); null when the caller didn't supply it. */
+  myActualRuns: number | null;
   actualGameRuns: number;
 }
 
+export type ApiErrorCode =
+  | "INVALID_REQUEST"
+  | "INVALID_ROLE"
+  | "GAME_NOT_FOUND"
+  | "SESSION_EXPIRED"
+  | "CANNOT_UNDO"
+  | "NO_AVAILABLE_PITCHER"
+  | "MODEL_UNAVAILABLE"
+  | "INTERNAL_ERROR"
+  /** Client-side only: no response (offline, timeout, proxy down). Always `recoverable: true`. */
+  | "NETWORK_ERROR"
+  /** Client-side only: caller aborted a superseded request. Never show it. */
+  | "ABORTED";
+
 export interface ApiError {
   error: {
-    code:
-      | "SESSION_EXPIRED"
-      | "NO_AVAILABLE_PITCHER"
-      | "INVALID_ROLE"
-      | "CANNOT_UNDO"
-      | "MODEL_UNAVAILABLE";
+    code: ApiErrorCode;
     message: string;
     recoverable: boolean;
   };

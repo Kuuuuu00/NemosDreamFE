@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { DecisionComparison } from "@/components/result/DecisionComparison";
 import { DecisionLog } from "@/components/result/DecisionLog";
@@ -15,8 +15,6 @@ import { useSessionParams } from "@/context/SessionContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useSessionResult } from "@/hooks/useSessionResult";
 import { useTeams } from "@/hooks/useTeams";
-import * as api from "@/mocks/api";
-import type { WeTraceResponse } from "@/types/api";
 
 export default function ResultPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -24,27 +22,7 @@ export default function ResultPage() {
   const { theme, toggle } = useTheme();
   const { clear } = useSessionParams();
   const teams = useTeams();
-  const { result, status, repeat, repeatOpen, repeatLoading, toggleRepeat } = useSessionResult(sessionId);
-
-  const [weTrace, setWeTrace] = useState<WeTraceResponse | null>(null);
-
-  // weTrace isn't part of SimulationResult (it's its own existing endpoint,
-  // reused as-is) — fetched once alongside the result.
-  useEffect(() => {
-    if (!sessionId) return;
-    let cancelled = false;
-    api
-      .getWeTrace(sessionId)
-      .then((wt) => {
-        if (!cancelled) setWeTrace(wt);
-      })
-      .catch(() => {
-        if (!cancelled) setWeTrace(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionId]);
+  const { result, weTrace, status, repeat, repeatOpen, repeatLoading, toggleRepeat } = useSessionResult(sessionId);
 
   const teamName = useMemo(() => {
     const map = new Map(teams.map((t) => [t.code, t.name]));

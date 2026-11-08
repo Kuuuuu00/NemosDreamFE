@@ -33,7 +33,7 @@ export function DecisionLog({ decisions }: DecisionLogProps) {
                 <span className="text-muted-foreground">{real ?? "— (분기 이후라 비교 불가)"}</span>
                 <span className="text-muted-foreground">결과</span>
                 <span style={{ color: goodOutcome ? "var(--primary)" : "var(--destructive)" }}>
-                  {d.outcomeLabel} → {d.runsScored > 0 ? `${d.runsScored}실점` : "무실점"} · ΔWE {goodOutcome ? "+" : ""}
+                  {d.outcomeLabel} → {d.runsScored === null ? "—" : d.runsScored > 0 ? `${d.runsScored}실점` : "무실점"} · ΔWE {goodOutcome ? "+" : ""}
                   {d.deltaWeDefender.toFixed(2)}
                 </span>
               </div>

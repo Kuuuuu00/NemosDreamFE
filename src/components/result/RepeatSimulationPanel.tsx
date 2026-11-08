@@ -9,7 +9,8 @@ interface RepeatSimulationPanelProps {
 
 export function RepeatSimulationPanel({ repeat, startInning }: RepeatSimulationPanelProps) {
   const data = repeat.histogram.map((h) => {
-    const isMine = h.runs === repeat.myActualRuns || (h.runs === 7 && repeat.myActualRuns >= 7);
+    const mine = repeat.myActualRuns;
+    const isMine = mine !== null && (h.runs === mine || (h.runs === 7 && mine >= 7));
     const isActual = h.runs === repeat.actualGameRuns || (h.runs === 7 && repeat.actualGameRuns >= 7);
     return {
       ...h,
@@ -25,7 +26,7 @@ export function RepeatSimulationPanel({ repeat, startInning }: RepeatSimulationP
         <span className="text-sm">반복 시뮬레이션 · {repeat.n}회</span>
         <span className="text-xs text-muted-foreground">
           중앙값 {repeat.median}실점 · 실제 경기({repeat.actualGameRuns}실점)보다 좋을 확률{" "}
-          {(repeat.probBetterThanActual * 100).toFixed(0)}% · 같을 확률 {(repeat.probSameAsActual * 100).toFixed(0)}%
+          {(repeat.probBetterThanActual * 100).toFixed(0)}%{repeat.probSameAsActual !== undefined && ` · 같을 확률 ${(repeat.probSameAsActual * 100).toFixed(0)}%`}
         </span>
       </div>
       <div className="mb-4 text-[11px] text-muted-foreground">

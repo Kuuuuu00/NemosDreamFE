@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import * as api from "@/mocks/api";
+import { api } from "@/api";
 import type { Team } from "@/types/api";
 
 export function useTeams() {
@@ -7,9 +7,12 @@ export function useTeams() {
 
   useEffect(() => {
     let cancelled = false;
-    api.getTeams().then((t) => {
-      if (!cancelled) setTeams(t);
-    });
+    api
+      .getTeams()
+      .then((t) => {
+        if (!cancelled) setTeams(t);
+      })
+      .catch((e) => console.error("[useTeams]", e)); // TODO(3-3): surface via ErrorBanner
     return () => {
       cancelled = true;
     };

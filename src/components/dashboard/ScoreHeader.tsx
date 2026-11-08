@@ -19,7 +19,7 @@ function LineRow({
   label: string;
   teamCode: string;
   line: (number | null)[];
-  totals: { R: number; H: number; E: number; B: number };
+  totals: { R: number; H: number; E: number | null; B: number };
 }) {
   return (
     <tr>
@@ -36,7 +36,7 @@ function LineRow({
       ))}
       <td className="py-[3px] pl-3.5 pr-2 text-center font-medium">{totals.R}</td>
       <td className="px-2 py-[3px] text-center">{totals.H}</td>
-      <td className="px-2 py-[3px] text-center">{totals.E}</td>
+      <td className="px-2 py-[3px] text-center">{totals.E ?? "—"}</td>
       <td className="py-[3px] pl-2 text-center">{totals.B}</td>
     </tr>
   );

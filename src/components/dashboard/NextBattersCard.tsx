@@ -14,11 +14,16 @@ export function NextBattersCard({ batters }: { batters: Batter[] }) {
               {b.order}번 {b.name} <span className="text-[11px] text-muted-foreground">{HAND_LABEL[b.hitType]}</span>
             </span>
             <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
-              {b.season.avg.toFixed(3).replace(/^0/, "")} · OPS {b.season.ops.toFixed(3).replace(/^0/, "")}
+              {rate(b.season.avg)} · OPS {rate(b.season.ops)}
             </span>
           </div>
         ))}
       </div>
     </Card>
   );
+}
+
+/** Season rate stats are null before the batter has data (real backend). */
+function rate(v: number | null): string {
+  return v === null ? "—" : v.toFixed(3).replace(/^0/, "");
 }

@@ -34,9 +34,9 @@ export function CurrentPitcherCard({ pitcher, batter, badgeLabel }: CurrentPitch
           </span>
         </div>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-          <Fact label="이번 등판 투구수" value={`${w.estPitchCount}구`} />
-          <Fact label="이닝" value={inningsLabel(w.outsRecorded)} />
-          <Fact label="피안타 / 볼넷" value={`${w.hitsAllowed} / ${w.walksAllowed}`} />
+          <Fact label="이번 등판 투구수" value={w.estPitchCount === null ? "—" : `${w.estPitchCount}구`} />
+          <Fact label="이닝" value={w.outsRecorded === null ? "—" : inningsLabel(w.outsRecorded)} />
+          <Fact label="피안타 / 볼넷" value={`${w.hitsAllowed ?? "—"} / ${w.walksAllowed ?? "—"}`} />
           <Fact
             label="현재 타자 매치업"
             value={`${THROWS_LABEL[pitcher.throws]} vs ${BATTER_LABEL[batter.hitType]} · ${MATCHUP_LABEL[matchup]}`}

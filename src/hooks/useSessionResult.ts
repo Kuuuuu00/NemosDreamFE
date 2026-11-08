@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import * as api from "@/mocks/api";
-import type { RepeatResult, SimulationResult } from "@/types/api";
+import { api, isAbortError } from "@/api";
+import { useInFlight } from "@/hooks/useInFlight";
+import type { RepeatResult, SimulationResult, WeTraceResponse } from "@/types/api";
 
 type Status = "idle" | "loading" | "ready" | "error";
 
@@ -11,31 +12,38 @@ type Status = "idle" | "loading" | "ready" | "error";
  */
 export function useSessionResult(sessionId: string | undefined) {
   const [result, setResult] = useState<SimulationResult | null>(null);
+  const [weTrace, setWeTrace] = useState<WeTraceResponse | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [repeat, setRepeat] = useState<RepeatResult | null>(null);
   const [repeatOpen, setRepeatOpen] = useState(false);
-  const [repeatLoading, setRepeatLoading] = useState(false);
+  // One lock for repeat: a second click while the first is running is ignored.
+  const { inFlight: repeatLoading, run } = useInFlight();
 
   useEffect(() => {
     if (!sessionId) {
       setStatus("idle");
       return;
     }
-    let cancelled = false;
+    const ctrl = new AbortController();
     setStatus("loading");
-    api
-      .getResult(sessionId)
-      .then((r) => {
-        if (cancelled) return;
+    Promise.all([
+      api.getResult(sessionId, { signal: ctrl.signal }),
+      // weTrace is its own endpoint, fetched alongside the result.
+      api.getWeTrace(sessionId, { signal: ctrl.signal }).catch((e) => {
+        if (isAbortError(e)) throw e;
+        return null;
+      }),
+    ])
+      .then(([r, wt]) => {
+        if (ctrl.signal.aborted) return;
         setResult(r);
+        setWeTrace(wt);
         setStatus("ready");
       })
-      .catch(() => {
-        if (!cancelled) setStatus("error");
+      .catch((e) => {
+        if (!isAbortError(e) && !ctrl.signal.aborted) setStatus("error"); // TODO(3-3): ErrorBanner / SESSION_EXPIRED
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => ctrl.abort();
   }, [sessionId]);
 
   const toggleRepeat = useCallback(async () => {
@@ -48,20 +56,17 @@ export function useSessionResult(sessionId: string | undefined) {
       return;
     }
     if (!sessionId) return;
-    setRepeatLoading(true);
-    const startedAt = performance.now();
-    try {
-      const r = await api.getRepeatSimulation(sessionId, 100);
+    await run(async () => {
+      const startedAt = performance.now();
+      const r = await api.getRepeatSimulation(sessionId, 100, { myRunsAllowed: result?.runsAllowedInRange.mine });
       const elapsedMs = performance.now() - startedAt;
       if (elapsedMs > 3000) {
         console.warn(`repeatSimulation took ${elapsedMs.toFixed(0)}ms for n=100 — over the 3s budget, needs a progress UI`);
       }
       setRepeat(r);
       setRepeatOpen(true);
-    } finally {
-      setRepeatLoading(false);
-    }
-  }, [sessionId, repeat, repeatOpen]);
+    });
+  }, [sessionId, repeat, repeatOpen, result, run]);
 
-  return { result, status, repeat, repeatOpen, repeatLoading, toggleRepeat };
+  return { result, weTrace, status, repeat, repeatOpen, repeatLoading, toggleRepeat };
 }

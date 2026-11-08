@@ -17,9 +17,9 @@ const HAND: Record<string, string> = { L: "좌투", R: "우투", U: "언더" };
 const DASH = "—";
 
 function supportLine(c: ReliefCandidate): string {
-  const era = c.era !== undefined ? `ERA ${c.era.toFixed(2)}` : `ERA ${DASH}`;
+  const era = c.era !== undefined && c.era !== null ? `ERA ${c.era.toFixed(2)}` : `ERA ${DASH}`;
   const quality =
-    c.qualityPercentile !== undefined ? `quality 상위 ${Math.max(1, 100 - c.qualityPercentile)}%` : `quality ${DASH}`;
+    c.qualityPercentile !== undefined && c.qualityPercentile !== null ? `quality 상위 ${Math.max(1, 100 - c.qualityPercentile)}%` : `quality ${DASH}`;
   const matchup = c.matchupVsBatter ? `매치업 ${MATCHUP_LABEL[c.matchupVsBatter]}` : `매치업 ${DASH}`;
   const hasFatigue = c.consecutiveDays !== undefined || c.pitchesLast3d !== undefined;
   const fatigue = hasFatigue
