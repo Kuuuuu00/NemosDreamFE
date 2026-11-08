@@ -5,18 +5,19 @@ import { ApiRequestError } from "@/api";
 
 /**
  * SESSION_EXPIRED (server session gone after 30 idle minutes, or the stored
- * session info can't be rebuilt): drop the stored session and go back to
- * onboarding with a notice. Nothing else is recoverable from this error.
+ * session info can't be rebuilt): go back to onboarding with a notice.
+ * Nothing else is recoverable from this error.
  */
 export function useExpiredRedirect(error: ApiRequestError | null): void {
   const navigate = useNavigate();
-  const { clear } = useSessionParams();
   const expired = error?.code === "SESSION_EXPIRED";
   useEffect(() => {
     if (!expired) return;
-    clear();
+    // Don't clear the session here: emptying `params` makes the dashboard's own
+    // `<Navigate to="/" replace />` fire first and drop this notice state.
+    // Onboarding clears it (see `useExpiredNotice`).
     navigate("/", { replace: true, state: { notice: "SESSION_EXPIRED" } });
-  }, [expired, clear, navigate]);
+  }, [expired, navigate]);
 }
 
 /**
@@ -25,8 +26,13 @@ export function useExpiredRedirect(error: ApiRequestError | null): void {
  */
 export function useExpiredNotice(): { error: ApiRequestError | null; dismiss: () => void } {
   const location = useLocation();
+  const { clear } = useSessionParams();
   const [dismissed, setDismissed] = useState(false);
   const error = useMemo(() => new ApiRequestError("SESSION_EXPIRED", "", false), []);
   const fromExpired = (location.state as { notice?: string } | null)?.notice === "SESSION_EXPIRED";
+  // The expired session is useless: forget it (params + stored snapshot).
+  useEffect(() => {
+    if (fromExpired) clear();
+  }, [fromExpired, clear]);
   return { error: fromExpired && !dismissed ? error : null, dismiss: () => setDismissed(true) };
 }

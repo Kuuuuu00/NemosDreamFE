@@ -1,6 +1,7 @@
 import { Bar, BarChart, Cell, ResponsiveContainer, XAxis } from "recharts";
 import { Card } from "@/components/ui/card";
 import type { RepeatResult } from "@/types/api";
+import { inningRangeLabel } from "@/lib/resultDisplay";
 
 interface RepeatSimulationPanelProps {
   repeat: RepeatResult;
@@ -30,7 +31,7 @@ export function RepeatSimulationPanel({ repeat, startInning }: RepeatSimulationP
         </span>
       </div>
       <div className="mb-4 text-[11px] text-muted-foreground">
-        같은 시작 상황과 같은 결정을 {repeat.n}회 반복했을 때의 {startInning}~9회 실점 분포 · 우리 팀 공격은 실제
+        같은 시작 상황과 같은 결정을 {repeat.n}회 반복했을 때의 {inningRangeLabel(startInning)} 실점 분포 · 우리 팀 공격은 실제
         기록으로 고정됩니다
       </div>
       <div className="om-scroll pb-1">

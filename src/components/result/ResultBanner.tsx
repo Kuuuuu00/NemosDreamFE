@@ -1,6 +1,7 @@
 import { TeamEmblem } from "@/components/common/TeamEmblem";
 import { Card } from "@/components/ui/card";
 import type { ResultKind, SimulationResult } from "@/types/api";
+import { inningRangeLabel } from "@/lib/resultDisplay";
 
 function winLossLabel(kind: ResultKind): string {
   switch (kind) {
@@ -50,7 +51,7 @@ export function ResultBanner({ result, teamName }: ResultBannerProps) {
             {winLossLabel(myResult)}
           </span>
           <span className="text-[13px] text-muted-foreground">
-            {startInning}~9회 실점 {runsAllowedInRange.mine}
+            {inningRangeLabel(startInning)} 실점 {runsAllowedInRange.mine}
           </span>
         </div>
       </Card>
@@ -78,7 +79,7 @@ export function ResultBanner({ result, teamName }: ResultBannerProps) {
         <div className="flex items-baseline gap-3.5">
           <span className="text-[15px] text-muted-foreground">{winLossLabel(actualResult)}</span>
           <span className="text-[13px] text-muted-foreground">
-            {startInning}~9회 실점 {runsAllowedInRange.actual}
+            {inningRangeLabel(startInning)} 실점 {runsAllowedInRange.actual}
           </span>
         </div>
       </Card>

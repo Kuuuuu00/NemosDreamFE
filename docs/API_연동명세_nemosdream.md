@@ -237,7 +237,7 @@ export interface Pitcher {
   throws: 'L' | 'R' | 'U';              // [명세 기준]
   photo_url: string | null;
   season: { era: number | null; whip: number | null; ip: number; so: number; bb: number; g: number };  // 실측: era·whip null 가능
-  vs_batter_hand: { L: HandSplit | null; R: HandSplit | null };  // [확인 필요] 표본 없을 때
+  vs_batter_hand: { L: HandSplit | null; R: HandSplit | null };  // ✅ 실측: 표본이 없으면 L/R 객체는 오고 avg·woba·iso가 null (객체 자체가 null인 경우는 미관찰, 둘 다 방어)
   workload: Workload;
   availability: 'available' | 'used' | 'current' | 'unavailable';  // [명세 기준]
   unavailable_reason: string | null;
@@ -246,10 +246,10 @@ export interface Pitcher {
 // recommend의 후보에만 쓰이는 확장형 (스펙: CandidatePitcher)
 export interface CandidatePitcher extends Pitcher {
   model_score: number | null;           // 사용한 투수(used)는 null (설명문 명시)
-  model_rank: number | null;            // 사용한 투수는 null [확인 필요]
+  model_rank: number | null;            // ✅ 실측: 사용한 투수는 null
   quality_percentile: number | null;    // 0~100, 참고용
   matchup_vs_batter: Matchup | null;
-  role: string | null;                  // ⚠ 명세에 없는 필드. 의미 [확인 필요] (§7 #6)
+  role: string | null;                  // ⚠ 명세에 없는 필드. ✅ 실측: 8명 전원 "bullpen" (구분 없음, 표시 가치 낮음) (§7 #6)
 }
 
 // ── Batter ───────────────────────────────────────
@@ -262,7 +262,7 @@ export interface Batter {
   position: string;
   season: { avg: number | null; obp: number | null; slg: number | null; ops: number | null; hr: number };  // 실측: 시즌 누적 없으면 null
   recent_avg: number | null;
-  vs_current_pitcher: {                 // 상대 전적 없으면 null 가능 [확인 필요]
+  vs_current_pitcher: {                 // ✅ 실측: 상대 전적 없으면 null
     ab: number; h: number; avg: number | null; woba: number | null; iso: number | null;
   } | null;
   today: { ab: number; h: number; rbi: number; log: string[] };  // log: 결과 코드 배열
@@ -285,7 +285,7 @@ export interface GameState {
   my_team: TeamCode;
   opponent_team: TeamCode;
   my_role: 'defense' | 'offense';       // [명세 기준]
-  current_pitcher: Pitcher;             // offense일 때 누구인지 [확인 필요]
+  current_pitcher: Pitcher;             // ✅ 실측: offense일 때는 상대 팀 투수
   current_batter: Batter;
   upcoming_batters: Batter[];           // 3명
   leverage_index: number;
@@ -308,7 +308,7 @@ export interface PaResult {
   outcome_label: string;                // "2루타"
   description: string;
   probability: number;                  // 뽑힌 결과의 확률
-  probs: Record<Outcome, number>;       // 9개 키, 합 1.0. 실제 기록 재생(actual)일 때도 오는지 [확인 필요]
+  probs: Record<Outcome, number>;       // 9개 키, 합 1.0. ✅ 실측: actual일 때도 9키 전부 옴 (단 타자·투수와 무관하게 동일해 placeholder 의심 — REPORT #15)
   runs_scored: number;
   delta_we_attacker: number;
   delta_we_defender: number;            // 화면 표시는 이쪽
@@ -326,7 +326,7 @@ export interface PaResult {
 | 항목 | 내용 |
 | --- | --- |
 | 파라미터 | 없음 |
-| 응답 200 | `string` (Content-Type은 application/json) — 값 [확인 필요], 아마 `"OK"` |
+| 응답 200 | `string` (Content-Type은 application/json) — ✅ 실측: 따옴표 없는 평문 `OK` (JSON 아님) |
 
 응답 바디 내용으로 판정하지 말고 **HTTP 200 여부만** 본다.
 `/api/v1` 접두사가 없으므로 베이스 URL 조합에 주의.
@@ -503,7 +503,7 @@ export interface RecommendResponse {
 | 응답 | 내용 |
 | --- | --- |
 | 200 | `{ "result": PaResult }` (§2) |
-| 400 | `INVALID_ROLE` (공격 중 호출) · `INVALID_REQUEST` (used 투수 등 [확인 필요]) |
+| 400 | `INVALID_ROLE` (공격 중 호출) · `INVALID_REQUEST` (used 투수·명단 밖 id — ✅ 실측 400, message에 id가 들어감) |
 
 **서버 동작 (설명문)**
 
@@ -518,7 +518,7 @@ export interface RecommendResponse {
 - `result.next_state`로 state를 **통째로 교체**한다.
 - 결과 이펙트는 `result.outcome`(9종)으로 매핑. `outcome_label`은 표시 문구.
 - 확률 막대는 `result.probs`를 그린다. 9개 키 모두 존재한다고 가정하되, 없는 키는 0으로 채운다.
-  `source === 'actual'`일 때 probs가 의미 있는 값인지 [확인 필요] — 실제 기록 재생이면 분포가 비어 있을 수 있다.
+  `source === 'actual'`이어도 `probs` 9키는 모두 오지만 타자·투수와 무관하게 동일한 값이 오는 타석이 있어 의미 있는 분포인지 의심스럽다(✅ 실측, REPORT #15). 확인 전까지 actual 타석은 확률 막대를 숨긴다.
 - ΔWE 표시는 `delta_we_defender` (내 팀 = 수비 관점).
 - **분기 판정이 1차 QA 때 논의한 것과 다르다.** 서버는 "투수 선택이 달라진 순간"을 분기로 본다.
   분기 전에는 실제 기록을 재생하므로 결과도 실제와 같다. 따라서 **분기 전 `we-trace.simulated`는 빈 배열**이며,
@@ -545,7 +545,7 @@ export interface AdvanceHalfResponse {
     runs: number;
     hits: number;
     pa_log: { batter_id: number; batter: string; outcome: Outcome; description: string }[];
-    we_trace: number[];                 // 타석별 WE. 관점·포함 범위 [확인 필요] (§7 #9)
+    we_trace: number[];                 // 타석별 WE. ✅ 실측: 길이 = 타석 수 + 1, [0] = 공격 시작 WE, my_team 관점 (§7 #9)
     source: 'actual' | 'simulated';
   };
   state: GameState;                     // 다음 내 팀 수비 반이닝 시작 시점 (또는 경기 종료)
@@ -584,7 +584,7 @@ export interface AdvanceHalfResponse {
 **연동 메모**
 
 - 버튼 활성 여부는 `state.can_undo`로만 판단한다. 프론트에서 히스토리 스택을 따로 관리하지 않는다.
-- 공격 반이닝 직후 undo하면 이전 수비 반이닝의 마지막 타석 **전**으로 갈 수 있다 [확인 필요].
+- ✅ 실측(서버·브라우저 V1 모두): 공격 반이닝 직후 undo는 **공격 시작 상태**(`my_role: offense`)로 돌아온다. 직전 수비 타석까지는 가지 않는다.
   즉 한 번 누르면 "공격 반이닝 + 그 직전 수비 타석"이 함께 되돌아가는지, 공격 반이닝만 되돌아가 3아웃 직후 상태가 되는지 확인.
   후자라면 `my_role`이 offense인 상태가 나오므로 화면은 `advance-half` 대기 상태로 그려야 한다.
 - undo 후: `we-trace` 재조회, `my_role === 'defense'`면 `recommend` 재조회. 사용자 선택은 초기화.
@@ -610,7 +610,7 @@ export interface WeTraceResponse {
   perspective: TeamCode;                // = my_team
   actual: HalfPoint[];                  // 실제 경기 전체
   simulated: HalfPoint[];               // 분기한 반이닝부터 지금까지. 분기 전이면 []
-  diverge_at: { inning: number; half: Half } | null;   // 분기 전 null [확인 필요]
+  diverge_at: { inning: number; half: Half } | null;   // ✅ 실측: 분기 전 null
   current: number;                      // 현재 WE
 }
 ```
@@ -709,7 +709,7 @@ export interface Side {
   score: { my: number; opp: number };      // ✅ 실측: 내 팀/상대 (OpenAPI Score 스키마는 home/away로 적혀 있으나 실제 응답은 my/opp, §7 #1). GameState.score는 home/away 그대로
   runs_allowed_in_range: number;           // 세션 시작 이후 내준 점수
   final_we: number;                        // my_team 관점
-  result: 'win' | 'loss' | 'tie' | 'in_progress';   // [확인 필요] 값 목록
+  result: 'win' | 'loss' | 'tie' | 'in_progress';   // ✅ 실측: win / in_progress 관찰, loss / tie 미관찰
 }
 
 export interface PaPoint { inning: number; half: Half; pa: number }
@@ -809,7 +809,7 @@ export interface RepeatResponse {
   빈 구간(0회)은 키가 없을 수 있으므로 0~max 범위로 채운다.
 - `actual.runs_allowed`를 히스토그램 위에 기준선으로 표시할 수 있다 (새 필드 활용).
 - 요청 타임아웃을 **10초 이상**으로 둔다. 명세 목표 3초지만 n=100 실측 전이다. 진행 중 스피너 필수.
-- 여러 번 눌러도 세션은 안 바뀌므로 결과 캐싱 가능 (같은 n이면 같은 결과인지 [확인 필요]).
+- 여러 번 눌러도 세션은 안 바뀌므로 결과 캐싱 가능 (✅ 실측: 같은 n이면 `elapsed_ms` 외 동일 결과, n=100은 약 4초).
 
 ---
 
@@ -849,27 +849,29 @@ export interface RepeatResponse {
 ## 5. 실제 응답으로 확인할 것
 
 스펙으로 알 수 없어 **Swagger `Try it out` 또는 첫 연동 시 콘솔 로그로 확인**해야 하는 항목.
-확인되면 §2 타입의 [확인 필요] 표시를 지운다.
+확인된 값은 §2 타입의 주석에 반영했다(✅ 표시).
 
 > **실측 완료(2026-11-09)**: 15개 항목의 실측값은 `docs/integration/C-live-findings.md` §1에 있다. 명세와 달랐던 점은 §7 #1, #14~#22에 반영했다. 미확인: #13의 `loss`/`tie`, #14의 n=100 `elapsed_ms`, HH 홈 경기(수비가 초) 흐름 — 4단계 V1에서 확인한다.
 
-| # | 대상 | 확인 내용 |
+| # | 대상 | 실측 결과 |
 | --- | --- | --- |
-| 1 | `/health` | 응답 문자열 |
-| 2 | `/config` | `bands` 실제 구간, `provisional` 값 |
-| 3 | `/recommend` | **`model_score` 실제 스케일과 후보 간 차이** — 바가 구분될 만큼 벌어지는가 (명세 §9 #1) |
-| 4 | `/recommend` | `role` 필드 값 목록 |
-| 5 | `/recommend` | `source`, `leverage_band`, `bullpen_source`, `availability` 실제 값 |
-| 6 | `/recommend` | used 투수의 `model_rank`, `quality_percentile`도 null인가 |
-| 7 | `/simulate-pa` | `source: "actual"`일 때 `probs`·`probability` 값 |
-| 8 | `/simulate-pa` | used 투수 id를 보내면 어떤 에러인가 |
-| 9 | `GameState` | `my_role: "offense"`일 때 `current_pitcher`는 누구인가 (상대 투수?) |
-| 10 | `GameState` | 분기 전 `diverged_at`이 null인가 |
-| 11 | `/advance-half` | `summary.we_trace`의 관점과 길이 (타석 수? 타석 수+1?) |
-| 12 | `/undo` | 공격 반이닝 직후 undo 시 도착 상태 |
-| 13 | `/result` | `Side.result` 값 목록, `decisions[].outcome` 형식 |
-| 14 | `/repeat` | n=100 실측 `elapsed_ms`, 같은 n 재호출 시 결과 동일 여부 |
-| 15 | 전체 | `photo_url` 형식 (상대 경로 / 절대 URL / null 비율) |
+| 1 | `/health` | 200, 바디는 평문 `OK`. `res.ok`만 판정 |
+| 2 | `/config` | bands: 저 0–0.85 / 중 0.85–1.5 / 고 1.5–3.0 / 매우 높음 3.0–5.0. `league_avg 1.0`, `max 5.0`, `score_unit "wpa_per_pa"`, `provisional true` |
+| 3 | `/recommend` `model_score` | 범위 약 −0.018 ~ +0.0025, 인접 후보 차이 0.00004 ~ 0.003 (스케일 1e-2~1e-3). **동점 후보 존재**(정우주·권민규). min-max 정규화 필수 |
+| 4 | `role` | 8명 전원 `"bullpen"` |
+| 5 | `source` / `leverage_band` / `bullpen_source` / `availability` | `live`(관찰), 밴드는 config 라벨과 일치, `actual`, `available`·`used`·`current` 관찰(`unavailable` 미관찰) |
+| 6 | used 투수 | `model_score`·`model_rank` null, **`quality_percentile`은 값 있음**(명세와 다름), available 중 일부는 null |
+| 7 | `source:"actual"` | `probs` 9키·`probability` 모두 옴. 타자와 무관하게 동일해 placeholder 의심(REPORT #15) |
+| 8 | used 투수 id 전송 | 400 `INVALID_REQUEST` (message에 id 포함). 명단 밖 id도 동일 |
+| 9 | offense일 때 `current_pitcher` | 상대 팀 투수 |
+| 10 | 분기 전 `diverged_at` | null (분기 후 `{inning, half, pa_index}`) |
+| 11 | `advance-half` `we_trace` | 길이 = 타석 수 + 1, `[0]` = 공격 시작 WE, my_team 관점(관점 필드 없음) |
+| 12 | 공격 직후 undo | 공격 시작 상태(`offense`)로 복귀 |
+| 13 | `/result` | `Side.result`는 win/in_progress 관찰(loss/tie 미관찰), `decisions[].outcome`은 9종 코드, `score`는 `{my, opp}` |
+| 14 | `/repeat` | n=10 약 0.8초, n=100 약 4초, 같은 n은 결과 동일 |
+| 15 | `photo_url` | `/static/players/{id}.webp` 상대 경로(전원 non-null, 200), `Team.logo_url`은 10팀 전부 null |
+
+> 미관찰(4단계 V1 이후에도): `Side.result`의 `loss`/`tie`, `availability: "unavailable"`, 연장·콜드 등 다른 종료 경로, `CANNOT_UNDO`·`NO_AVAILABLE_PITCHER`·`MODEL_UNAVAILABLE`·`INTERNAL_ERROR` 응답.
 
 ---
 
@@ -903,6 +905,8 @@ export interface RepeatResponse {
 | 17 | `INVALID_ROLE`·`INVALID_REQUEST` message | 고정 문구 | `INVALID_ROLE`은 simulate-pa에서 "…/advance-half 로 진행하세요", `INVALID_REQUEST`는 원인(필드명·투수 id) 포함 | 화면 노출 부적합 | code 기준 문구 사용, message는 콘솔 로깅만 |
 | 18 | `/we-trace` `simulated[].leverage_index` | 반이닝 최고 LI | 아직 진행하지 않은 반이닝은 `0.0` | 차트에 쓰면 0으로 보임 | LI 차트는 B안(state 누적)이라 미사용. 승률 곡선만 사용 |
 | 19 | `/undo` (공격 반이닝 직후) | 불명 (§5 #12) | 공격 시작 상태(예: 8회초, `my_role: offense`)로 복귀. 직전 수비 타석까지는 안 감 | 화면이 `advance-half` 대기 상태를 그려야 함 | 대시보드 offense 상태 처리, B안 undo 스택과 1:1 (C §1 #12) |
-| 20 | CORS | 확인 필요 | `Origin: http://localhost:5173`만 허용(200). 그 외(`http://172.25.20.15:5173`, `https://example.com`)는 preflight **403** | 브라우저 직접 호출 불가(WSL IP 접속 시) | dev: Vite proxy. 배포 도메인은 백엔드에 허용 요청 |
+| 20 | CORS | 실측 | `Origin: http://localhost:5173`만 허용(200). 그 외(`http://172.25.20.15:5173`, `https://example.com`)는 preflight **403** | 브라우저 직접 호출 불가(WSL IP 접속 시) | dev: Vite proxy. 배포 도메인은 백엔드에 허용 요청 |
 | 21 | `/result` `bullpen_used.total` vs `/recommend` `bullpen_summary.total` | 동일 모수 가정 | 10 vs 8 | 표시 문구 모호 | 백엔드 확인 요청. 프론트는 각 응답 값 그대로 |
 | 22 | `/result` `pitcher_usage` 범위 | 불명 | 세션 시작 이후 등판만 (세션 이전·선발 이력 없음) | UsageTimelineCard 범위 | "세션 시작 이후"로 표기. 이전 구간은 백엔드 요청 (C §7) |
+| 23 | 결과 화면 직접 진입 | `/result/{id}`만으로 화면 구성 가능 가정 | 응답에 `my_team`·home/away·`start_inning`이 없어, 같은 브라우저 sessionStorage 메타 없이는 점수 변환·표시 불가 (새 브라우저에서 유효한 id를 열면 "세션 만료"로 처리됨, V1 A6) | 공유 링크로 결과 열기 불가 | 프론트는 SESSION_EXPIRED로 처리. 백엔드에 `/result` 응답에 세션 메타 포함 요청(REPORT) |
+| 24 | "현재 투수 유지" | §4-1: 유지만 반복하면 분기 없음 | 실제 감독이 교체한 타석(`actual_decision.was_change`)에서 유지하면 즉시 분기 | 체크리스트 기대값 | §4-1 문구 정정, `actual_decision` 기준 판정 |

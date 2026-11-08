@@ -32,6 +32,12 @@ export function LeverageChart({ liSeries, bands, leagueAvg, currentLI, liPercent
       })),
     [liSeries],
   );
+  // X is keyed by the unique recording order. (Keying by the label made almost
+  // every category "" — Recharts merges equal categories, so hovering any point
+  // past the 2nd showed the 2nd point's tooltip.)
+  const labelByKey = useMemo(() => new Map(data.map((d) => [d.key, d.tickLabel])), [data]);
+  // A half-inning with a single recorded point has no line to draw — show it as a dot.
+  const isolated = useMemo(() => data.map((d, i) => d.li !== null && data[i - 1]?.li == null && data[i + 1]?.li == null), [data]);
   const highMin = bands.length > 0 ? bands[bands.length - 1].min : 1.5;
   const boundaries = bands.map((b) => b.min).filter((m) => m > 0 && m !== leagueAvg);
 
@@ -60,9 +66,10 @@ export function LeverageChart({ liSeries, bands, leagueAvg, currentLI, liPercent
       <div className="h-[150px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-            <YAxis domain={[0, maxLi]} tick={{ fontSize: 9, fill: "var(--muted-foreground)" }} width={22} axisLine={false} tickLine={false} />
+            <YAxis domain={[0, maxLi]} tick={{ fontSize: 9, fill: "var(--muted-foreground)" }} tickFormatter={(v: number) => v.toFixed(1)} width={26} axisLine={false} tickLine={false} />
             <XAxis
-              dataKey="tickLabel"
+              dataKey="key"
+              tickFormatter={(k: number) => labelByKey.get(k) ?? ""}
               tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
               interval={0}
               axisLine={{ stroke: "var(--border)" }}
@@ -79,7 +86,15 @@ export function LeverageChart({ liSeries, bands, leagueAvg, currentLI, liPercent
               labelFormatter={(_, payload) => (payload?.[0]?.payload as { paLabel?: string } | undefined)?.paLabel ?? ""}
               formatter={(value) => [`${Number(value).toFixed(2)} (${bandLabel(Number(value), bands)})`, "LI"]}
             />
-            <Line type="linear" dataKey="li" connectNulls={false} stroke="var(--chart-5)" strokeWidth={2} dot={data.length < 2} isAnimationActive={false} />
+            <Line type="linear" dataKey="li" connectNulls={false} stroke="var(--chart-5)" strokeWidth={2} dot={(p: { cx?: number; cy?: number; index?: number }) =>
+                isolated[p.index ?? -1] && p.cx !== undefined && p.cy !== undefined ? (
+                  <circle key={`dot-${p.index}`} cx={p.cx} cy={p.cy} r={2.5} fill="var(--chart-5)" />
+                ) : (
+                  <g key={`dot-${p.index}`} />
+                )
+              }
+              isAnimationActive={false}
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>

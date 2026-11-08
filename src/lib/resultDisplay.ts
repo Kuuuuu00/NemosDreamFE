@@ -146,3 +146,8 @@ export function timelineSpans(
 export function signed(n: number, digits = 2): string {
   return `${n >= 0 ? "+" : ""}${n.toFixed(digits)}`;
 }
+
+/** "7~9회" — or just "9회" when the session starts in the 9th (not "9~9회"). */
+export function inningRangeLabel(startInning: number): string {
+  return startInning >= 9 ? "9회" : `${startInning}~9회`;
+}
