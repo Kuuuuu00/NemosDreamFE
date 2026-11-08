@@ -224,8 +224,8 @@ export interface RawDecisionRow {
   delta_we_defender: number;
   is_change: boolean;
   /** TODO(backend): `out_count` / `base_state` not sent yet (REPORT #2). */
-  out_count?: number;
-  base_state?: string;
+  out_count?: number | null;
+  base_state?: string | null;
 }
 
 export interface RawSide {

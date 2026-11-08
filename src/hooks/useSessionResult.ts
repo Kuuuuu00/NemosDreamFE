@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { api, isAbortError, isApiError, type ApiRequestError } from "@/api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { api, ApiRequestError, createLatest, isAbortError, isApiError } from "@/api";
 import { useInFlight } from "@/hooks/useInFlight";
 import type { RepeatResult, SimulationResult, WeTraceResponse } from "@/types/api";
 
@@ -18,6 +18,8 @@ export function useSessionResult(sessionId: string | undefined) {
   const [error, setError] = useState<ApiRequestError | null>(null);
   const [repeatError, setRepeatError] = useState<ApiRequestError | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  // A repeat answered after the session changed (or after a newer click) must not be applied.
+  const repeatGuard = useRef(createLatest());
   const [repeat, setRepeat] = useState<RepeatResult | null>(null);
   const [repeatOpen, setRepeatOpen] = useState(false);
   // One lock for repeat: a second click while the first is running is ignored.
@@ -29,15 +31,18 @@ export function useSessionResult(sessionId: string | undefined) {
       return;
     }
     const ctrl = new AbortController();
+    // New session → the cached repeat result belongs to the old one.
+    repeatGuard.current.cancel();
+    setRepeat(null);
+    setRepeatOpen(false);
+    setRepeatError(null);
     setStatus("loading");
     setError(null);
     Promise.all([
       api.getResult(sessionId, { signal: ctrl.signal }),
       // weTrace is its own endpoint, fetched alongside the result.
-      api.getWeTrace(sessionId, { signal: ctrl.signal }).catch((e) => {
-        if (isAbortError(e)) throw e;
-        return null;
-      }),
+      // The result page can't draw without it, so its failure is a load error (banner + retry), not a null.
+      api.getWeTrace(sessionId, { signal: ctrl.signal }),
     ])
       .then(([r, wt]) => {
         if (ctrl.signal.aborted) return;
@@ -47,7 +52,7 @@ export function useSessionResult(sessionId: string | undefined) {
       })
       .catch((e) => {
         if (isAbortError(e) || ctrl.signal.aborted) return;
-        setError(isApiError(e) ? e : null);
+        setError(isApiError(e) ? e : new ApiRequestError("INTERNAL_ERROR", String(e), true));
         setStatus("error");
       });
     return () => ctrl.abort();
@@ -69,8 +74,10 @@ export function useSessionResult(sessionId: string | undefined) {
     setRepeatError(null);
     await run(async () => {
       try {
+      const req = repeatGuard.current.begin();
       const startedAt = performance.now();
-      const r = await api.getRepeatSimulation(sessionId, 100, { myRunsAllowed: result?.runsAllowedInRange.mine });
+      const r = await api.getRepeatSimulation(sessionId, 100, { myRunsAllowed: result?.runsAllowedInRange.mine, signal: req.signal });
+      if (!req.isCurrent()) return;
       const elapsedMs = performance.now() - startedAt;
       if (elapsedMs > 3000) {
         console.warn(`repeatSimulation took ${elapsedMs.toFixed(0)}ms for n=100 — over the 3s budget, needs a progress UI`);

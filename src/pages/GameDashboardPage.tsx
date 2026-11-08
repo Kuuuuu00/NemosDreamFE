@@ -30,8 +30,11 @@ import { useTeams } from "@/hooks/useTeams";
 import { OUTCOME_LABELS } from "@/lib/outcomeDisplay";
 import type { AdvanceHalfSummary } from "@/types/api";
 
-/** My-team WE swing of an offense half. TODO(backend): server `delta_we` per half (REPORT #3); until then derived from `weTrace`. */
+/** My-team WE swing of an offense half. TODO(backend): server `pa_log[].delta_we` (REPORT #3). The adapter already prefers
+ * the server's per-PA value and otherwise derives it from `weTrace`, so summing `deltaWe` follows the server field once it exists. */
 function halfDeltaWe(summary: AdvanceHalfSummary): number {
+  const per = summary.paLog.map((p) => p.deltaWe);
+  if (per.length > 0 && per.every((d): d is number => typeof d === "number")) return per.reduce((a, b) => a + b, 0);
   const t = summary.weTrace;
   return t.length >= 2 ? t[t.length - 1] - t[0] : 0;
 }
@@ -160,6 +163,7 @@ export default function GameDashboardPage() {
   }
 
   function handleUndo() {
+    if (simulating) return; // an action is in flight: the lock would drop this undo, so don't touch the overlay either
     cancel();
     setSelectedId(null);
     void undo();

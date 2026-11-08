@@ -1,7 +1,6 @@
 import { TeamEmblem } from "@/components/common/TeamEmblem";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { ApiRequestError } from "@/api";
+import { useNavigate } from "react-router-dom";
 import { ErrorBanner } from "@/components/common/ErrorBanner";
 import { Button } from "@/components/ui/button";
 import { GamePicker } from "@/components/onboarding/GamePicker";
@@ -11,6 +10,7 @@ import { TeamGrid } from "@/components/onboarding/TeamGrid";
 import { useSessionParams } from "@/context/SessionContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useGames } from "@/hooks/useGames";
+import { useExpiredNotice } from "@/hooks/useExpiredRedirect";
 import { useTeamsStatus } from "@/hooks/useTeams";
 
 type StepN = 1 | 2 | 3 | 4;
@@ -21,10 +21,7 @@ export default function OnboardingPage() {
   const { theme, toggle } = useTheme();
   const { teams, error: teamsError, retry: retryTeams } = useTeamsStatus();
   // Coming back from an expired session (useExpiredRedirect): tell the user why.
-  const location = useLocation();
-  const [dismissedNotice, setDismissedNotice] = useState(false);
-  const expiredNotice = useMemo(() => new ApiRequestError("SESSION_EXPIRED", "", false), []);
-  const showExpiredNotice = (location.state as { notice?: string } | null)?.notice === "SESSION_EXPIRED" && !dismissedNotice;
+  const { error: expiredNotice, dismiss: dismissExpiredNotice } = useExpiredNotice();
 
   const [myTeam, setMyTeam] = useState<string | null>(null);
   const [oppTeam, setOppTeam] = useState<string | null>(null);
@@ -125,7 +122,7 @@ export default function OnboardingPage() {
           </Button>
         </div>
 
-        {showExpiredNotice && <ErrorBanner error={expiredNotice} onDismiss={() => setDismissedNotice(true)} />}
+        {expiredNotice && <ErrorBanner error={expiredNotice} onDismiss={dismissExpiredNotice} />}
         {teamsError && <ErrorBanner error={teamsError} onRetry={retryTeams} />}
 
         <StepCard label="내 팀" open={s1.open} onReopen={s1.onReopen}

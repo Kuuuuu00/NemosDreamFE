@@ -1,6 +1,5 @@
 import type { RawDecisionRow, RawPitcherUsage, RawRepeat, RawResult, RawSide } from "../raw";
 import type {
-  BaseState,
   DecisionLogEntry,
   PitcherUsageSegment,
   RepeatHistogramBucket,
@@ -56,7 +55,7 @@ function toDecision(d: RawDecisionRow): DecisionLogEntry {
     half: asHalf(d.half),
     // TODO(backend): out_count / base_state (REPORT #2) — server values win when sent.
     outCountBefore: d.out_count ?? null,
-    baseStateBefore: d.base_state !== undefined ? asBaseState(d.base_state) : (null as BaseState | null),
+    baseStateBefore: d.base_state != null ? asBaseState(d.base_state) : null,
     li: d.leverage_index,
     // The server only sends the model's #1 (rank 1 by definition); null while the model ranking is unavailable.
     modelRanking: d.model_top ? [{ pitcherId: d.model_top.pitcher_id, name: d.model_top.name, modelRank: 1 }] : [],
