@@ -68,38 +68,61 @@ export function runsScoredLabel(runs: number | null): string {
   return runs === null ? "—" : runs > 0 ? `${runs}실점` : "무실점";
 }
 
+/** PAs I faced per defensive half ("inning-half" → count), from `decisions`
+ * (one row per defensive PA, kept or changed). Gives the exact half length for
+ * MY usage even when a pitcher continues past the half. `actual_pitcher_usage`
+ * has no such rows, so it can't use this. */
+export function halfPaTotals(decisions: DecisionLogEntry[]): Map<string, number> {
+  const totals = new Map<string, number>();
+  for (const d of decisions) {
+    const key = `${d.inning}-${d.half}`;
+    totals.set(key, (totals.get(key) ?? 0) + 1);
+  }
+  return totals;
+}
+
 /** Timeline spans in "out" units (3 = one defensive half-inning, one per inning).
  *
  * With PA positions (real backend): a segment inside one half gets a share of
  * that half proportional to its PAs. `pa` is 0-based and `toPa` inclusive
  * (samples/result.json: 김서현 0→1 and 와이스 2→2 in 7회말), so
- *   width = (toPa - fromPa + 1) / halfTotal * 3,   halfTotal = lastSegment.toPa + 1.
- * `halfTotal` is the `toPa + 1` of the last segment ending in that half. It is
- * unknown when a pitcher continues past the half (the half's true end is never
- * reported); then the entry point falls back to the middle of the half, and
- * the previous segment is cut there ("반반").
+ *   width = (toPa - fromPa + 1) / halfTotal * 3.
+ * `halfTotal` comes from, in order:
+ *  1. `halfTotals` (my `decisions`: exact, even if a pitcher pitches across halves);
+ *  2. the last segment ending in that half (`toPa + 1`) — only when no pitcher
+ *     continues past that half;
+ *  3. unknown (the `actual_pitcher_usage` case where a pitcher crosses a half
+ *     with a mid-half entry): the entry point falls back to the middle of the
+ *     half and the previous segment is cut there ("반반").
  *
  * Without PA positions (mock): a segment covers whole innings and two
  * segments meeting inside one inning split it in half. */
-export function timelineSpans(segments: PitcherUsageSegment[], startInning: number): { start: number; end: number }[] {
+export function timelineSpans(
+  segments: PitcherUsageSegment[],
+  startInning: number,
+  halfTotals?: ReadonlyMap<string, number>,
+): { start: number; end: number }[] {
   const halfKey = (inning: number, half: string) => `${inning}-${half}`;
   const base = (inning: number) => Math.max(0, inning - startInning) * 3;
 
-  const totalPa = new Map<string, number>();
+  const lastTo = new Map<string, number>();
   const openHalves = new Set<string>(); // a pitcher continues past this half
   for (const s of segments) {
     const toKey = halfKey(s.toInning, s.toHalf);
-    if (s.toPa !== undefined) totalPa.set(toKey, Math.max(totalPa.get(toKey) ?? 0, s.toPa + 1));
+    if (s.toPa !== undefined) lastTo.set(toKey, Math.max(lastTo.get(toKey) ?? 0, s.toPa + 1));
     if (halfKey(s.fromInning, s.fromHalf) !== toKey) openHalves.add(halfKey(s.fromInning, s.fromHalf));
   }
+  const totalOf = (key: string): number | undefined => {
+    const known = halfTotals?.get(key);
+    if (known !== undefined) return Math.max(known, lastTo.get(key) ?? 0);
+    return openHalves.has(key) ? undefined : lastTo.get(key);
+  };
 
   const spans = segments.map((s) => {
     const coarse = { start: base(s.fromInning), end: base(s.toInning) + 3, midStart: true };
     if (s.fromPa === undefined || s.toPa === undefined) return coarse;
-    const fromKey = halfKey(s.fromInning, s.fromHalf);
-    const toKey = halfKey(s.toInning, s.toHalf);
-    const toTotal = openHalves.has(toKey) ? undefined : totalPa.get(toKey);
-    const fromTotal = openHalves.has(fromKey) ? undefined : totalPa.get(fromKey);
+    const toTotal = totalOf(halfKey(s.toInning, s.toHalf));
+    const fromTotal = totalOf(halfKey(s.fromInning, s.fromHalf));
     const end = toTotal ? base(s.toInning) + (3 * (s.toPa + 1)) / toTotal : coarse.end;
     if (s.fromPa === 0) return { start: coarse.start, end, midStart: false };
     if (fromTotal) return { start: coarse.start + (3 * s.fromPa) / fromTotal, end, midStart: false };

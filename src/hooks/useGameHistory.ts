@@ -1,5 +1,4 @@
 import { useCallback, useRef, useState } from "react";
-import { historyStorageKey } from "@/api/sessionStore";
 import type { AdvanceHalfSummary, GameState, Half, PAResult } from "@/types/api";
 import type { GameHistory, LiPoint, LogEntry } from "@/types/history";
 
@@ -14,7 +13,9 @@ import type { GameHistory, LiPoint, LogEntry } from "@/types/history";
  *   PA, or a whole offense half — 1:1 with the forward actions).
  * - A `{li: null}` break is inserted whenever the half-inning changes, so the
  *   chart (connectNulls={false}) draws one segment per defensive half.
- * - Persisted to sessionStorage (`historyStorageKey`) for page refresh.
+ * - Not persisted here: the session hook saves `exportState()` together with
+ *   the server state under ONE sessionStorage key, once per successful response
+ *   (so state and history can't drift apart across a refresh).
  *
  * Mutations go through a ref (synchronous, so back-to-back record calls
  * never see stale state) and are mirrored into React state for rendering.
@@ -45,15 +46,6 @@ const emptyStore = (sessionId: string | null = null): Store => ({
 });
 
 const halfLabel = (inning: number, half: Half) => `${inning}회${half === "top" ? "초" : "말"}`;
-
-function persist(store: Store): void {
-  if (!store.sessionId) return;
-  try {
-    sessionStorage.setItem(historyStorageKey(store.sessionId), JSON.stringify(store));
-  } catch {
-    /* storage unavailable/full — refresh restore just won't have a history */
-  }
-}
 
 function lastLi(series: LiPoint[]): LiPoint | null {
   for (let i = series.length - 1; i >= 0; i--) if (series[i].li !== null) return series[i];
@@ -98,7 +90,6 @@ export function useGameHistory(): GameHistory & { log: LogEntry[] } {
 
   const commit = useCallback(() => {
     const s = ref.current;
-    persist(s);
     // New array identities so memoised consumers re-render.
     setView({ log: [...s.log], liSeries: [...s.liSeries], undoDepth: s.stack.length });
   }, []);
@@ -151,7 +142,13 @@ export function useGameHistory(): GameHistory & { log: LogEntry[] } {
       const s = ref.current;
       const step = s.stack.pop();
       if (!step) {
-        console.warn("[useGameHistory] undo with an empty local stack (history lost on refresh?)");
+        // The server undid something our stack doesn't know about (history lost
+        // or never saved). Don't leave a log/chart that disagrees with the
+        // screen: drop it and start recording again from the state we just got.
+        console.warn("[useGameHistory] undo succeeded with an empty local stack — history reset from the current state");
+        const fresh = emptyStore(state.sessionId);
+        pushPoint(fresh, state);
+        ref.current = fresh;
         commit();
         return;
       }
@@ -173,22 +170,17 @@ export function useGameHistory(): GameHistory & { log: LogEntry[] } {
     [commit],
   );
 
-  const restore = useCallback(
-    (sessionId: string) => {
-      try {
-        const raw = sessionStorage.getItem(historyStorageKey(sessionId));
-        if (!raw) return false;
-        const parsed = JSON.parse(raw) as Store;
-        if (parsed.sessionId !== sessionId || !Array.isArray(parsed.log) || !Array.isArray(parsed.liSeries) || !Array.isArray(parsed.stack)) return false;
-        ref.current = parsed;
-        setView({ log: [...parsed.log], liSeries: [...parsed.liSeries], undoDepth: parsed.stack.length });
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    [],
-  );
+  const exportState = useCallback((): unknown => ref.current, []);
 
-  return { ...view, recordStart, recordPa, recordAdvanceHalf, recordUndo, restore };
+  const restore = useCallback((data: unknown, sessionId: string) => {
+    const parsed = data as Partial<Store> | null;
+    if (!parsed || parsed.sessionId !== sessionId || !Array.isArray(parsed.log) || !Array.isArray(parsed.liSeries) || !Array.isArray(parsed.stack)) {
+      return false;
+    }
+    ref.current = parsed as Store;
+    setView({ log: [...parsed.log], liSeries: [...parsed.liSeries], undoDepth: parsed.stack.length });
+    return true;
+  }, []);
+
+  return { ...view, recordStart, recordPa, recordAdvanceHalf, recordUndo, exportState, restore };
 }

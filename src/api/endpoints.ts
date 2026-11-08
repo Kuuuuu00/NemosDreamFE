@@ -8,7 +8,7 @@ import { toConfig, toGame, toTeam, toWeTrace } from "./adapters/meta";
 import { toAdvanceHalf, toGameState, toPaResult } from "./adapters/state";
 import { toRecommendBundle } from "./adapters/recommend";
 import { toRepeat, toResult } from "./adapters/result";
-import { loadMeta, saveSession, saveState } from "./sessionStore";
+import { loadMeta, saveSession } from "./sessionStore";
 import type {
   RawAdvanceHalf,
   RawAppConfig,
@@ -69,22 +69,16 @@ export const realApi: ApiSurface = {
       method: "POST",
       body: { pitcher_id: id },
     });
-    const result = toPaResult(raw.result);
-    saveState(sessionId, result.nextState);
-    return { result };
+    return { result: toPaResult(raw.result) };
   },
 
   async advanceHalf(sessionId) {
-    const res = toAdvanceHalf(await request<RawAdvanceHalf>(`${base(sessionId)}/advance-half`, { method: "POST" }));
-    saveState(sessionId, res.state);
-    return res;
+    return toAdvanceHalf(await request<RawAdvanceHalf>(`${base(sessionId)}/advance-half`, { method: "POST" }));
   },
 
   async undoLast(sessionId) {
     const raw = await request<{ state: RawGameState }>(`${base(sessionId)}/undo`, { method: "POST" });
-    const state = toGameState(raw.state);
-    saveState(sessionId, state);
-    return { state };
+    return { state: toGameState(raw.state) };
   },
 
   async getWeTrace(sessionId, opts) {

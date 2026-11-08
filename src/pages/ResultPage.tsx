@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { ErrorBanner } from "@/components/common/ErrorBanner";
 import { DecisionComparison } from "@/components/result/DecisionComparison";
 import { DecisionLog } from "@/components/result/DecisionLog";
 import { PitcherTimeline } from "@/components/result/PitcherTimeline";
@@ -13,6 +14,7 @@ import { ResultWinProbChart } from "@/components/result/ResultWinProbChart";
 import { Button } from "@/components/ui/button";
 import { useSessionParams } from "@/context/SessionContext";
 import { useTheme } from "@/context/ThemeContext";
+import { useExpiredRedirect } from "@/hooks/useExpiredRedirect";
 import { useSessionResult } from "@/hooks/useSessionResult";
 import { useTeams } from "@/hooks/useTeams";
 import { visibleDecisions } from "@/lib/resultDisplay";
@@ -23,7 +25,8 @@ export default function ResultPage() {
   const { theme, toggle } = useTheme();
   const { clear } = useSessionParams();
   const teams = useTeams();
-  const { result, weTrace, status, error, repeat, repeatOpen, repeatLoading, toggleRepeat } = useSessionResult(sessionId);
+  const { result, weTrace, status, error, reload, repeat, repeatOpen, repeatLoading, repeatError, toggleRepeat } = useSessionResult(sessionId);
+  useExpiredRedirect(error); // SESSION_EXPIRED → onboarding with a notice
 
   // One filter/toggle state shared by DecisionComparison and DecisionLog.
   const [showAllPas, setShowAllPas] = useState(false);
@@ -35,9 +38,18 @@ export default function ResultPage() {
   }, [teams]);
 
   if (!sessionId) return <Navigate to="/" replace />;
-  // Only an unrecoverable session (expired / metadata gone) leaves the page.
-  // TODO(3-3): other errors (recoverable) get an ErrorBanner + retry (`reload`) instead of the spinner below.
-  if (status === "error" && error?.code === "SESSION_EXPIRED") return <Navigate to="/" replace />;
+  // Only an unrecoverable session (expired / metadata gone) leaves the page (useExpiredRedirect above).
+  // Any other load error is shown in place with a retry (`reload`) when recoverable.
+  if (status === "error" && error && error.code !== "SESSION_EXPIRED") {
+    return (
+      <div className="flex min-h-screen w-full flex-col items-center justify-center gap-4 bg-background px-4 text-foreground">
+        <ErrorBanner error={error} onRetry={reload} className="w-full max-w-[560px]" />
+        <Button variant="primary" onClick={handleNewGame}>
+          경기 선택으로 돌아가기
+        </Button>
+      </div>
+    );
+  }
 
   if (status !== "ready" || !result || !weTrace) {
     return (
@@ -73,7 +85,12 @@ export default function ResultPage() {
 
         <ResultLimitBanner />
 
-        <PitcherTimeline pitcherUsage={result.pitcherUsage} actualPitcherUsage={result.actualPitcherUsage} startInning={result.startInning} />
+        <PitcherTimeline
+          pitcherUsage={result.pitcherUsage}
+          actualPitcherUsage={result.actualPitcherUsage}
+          decisions={result.decisions}
+          startInning={result.startInning}
+        />
 
         <DecisionComparison
           decisions={decisions}
@@ -87,6 +104,7 @@ export default function ResultPage() {
           <DecisionLog decisions={decisions} />
         </div>
 
+        {repeatError && <ErrorBanner error={repeatError} onRetry={toggleRepeat} />}
         {repeatOpen && repeat && <RepeatSimulationPanel repeat={repeat} startInning={result.startInning} />}
 
         <ResultActionBar

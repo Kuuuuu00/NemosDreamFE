@@ -93,15 +93,18 @@ const game = toGame({ game_id: "20250902HHKT02025", date: "2025-09-02", away: "H
 check("games: date normalized to YYYY.MM.DD for the picker", game.date === "2025.09.02", game.date);
 
 // ── PitcherTimeline: PA-proportional split (pa is 0-based, `to` inclusive) ───
-const { timelineSpans } = await import("../src/lib/resultDisplay");
+const { timelineSpans, halfPaTotals } = await import("../src/lib/resultDisplay");
 const near = (a: number, b: number) => Math.abs(a - b) < 1e-9;
-const mine = timelineSpans(res.pitcherUsage, 7); // 김서현 0→1, 와이스 2→2 in 7회말 (3 PAs)
+const myTotals = halfPaTotals(res.decisions); // 7회말: 3 decision rows = 3 PAs
+const mine = timelineSpans(res.pitcherUsage, 7, myTotals); // 김서현 0→1, 와이스 2→2 in 7회말
 check("timeline: mid-inning change split by PAs (2 of 3, then 1 of 3)", near(mine[0].start, 0) && near(mine[0].end, 2) && near(mine[1].start, 2) && near(mine[1].end, 3), mine);
 const real = timelineSpans(res.actualPitcherUsage, 7); // one pitcher per inning, 0→3 each
 check("timeline: whole-inning segments fill 3 units each", real.every((sp, i) => near(sp.start, i * 3) && near(sp.end, i * 3 + 3)), real);
 const seg = (fromInning: number, fromPa: number, toInning: number, toPa: number) => ({ ...res.pitcherUsage[0], fromInning, toInning, fromPa, toPa });
 const crossing = timelineSpans([seg(7, 0, 7, 0), seg(7, 1, 8, 2)], 7); // 2nd pitcher continues into the 8th: 7th's length unknown
-check("timeline: pitcher continuing past a half falls back to mid-half cut", near(crossing[0].end, 1.5) && near(crossing[1].start, 1.5), crossing);
+check("timeline (actual row, no decisions): pitcher continuing past a half falls back to mid-half cut", near(crossing[0].end, 1.5) && near(crossing[1].start, 1.5), crossing);
+const exact = timelineSpans([seg(7, 0, 7, 0), seg(7, 1, 8, 2)], 7, new Map([["7-bot", 3], ["8-bot", 3]])); // my row: half lengths from decisions
+check("timeline (my row): crossing pitcher placed exactly from decisions (1/3 | 2/3 … 8th fully)", near(exact[0].end, 1) && near(exact[1].start, 1) && near(exact[1].end, 6), exact);
 
 // ── pitcherId: number conversion only in endpoints.simulatePa ────────────────
 console.log("\n# pitcherId handling");
@@ -113,6 +116,41 @@ try {
   rejected = e instanceof ApiRequestError && e.code === "INVALID_REQUEST";
 }
 check("simulatePa rejects a non-numeric id before any request", rejected && sent.length === 0, sent);
+
+// ── client error normalization (stubbed fetch, no network) ───────────────────
+console.log("\n# error normalization");
+const { request, isAbortError } = await import("../src/api/client");
+const stubbed = globalThis.fetch;
+const reply = (status: number, body: string) => (() => Promise.resolve(new Response(body, { status }))) as typeof fetch;
+async function failure(f: typeof fetch, signal?: AbortSignal) {
+  globalThis.fetch = f;
+  try {
+    await request("/api/v1/x", { signal });
+    return null;
+  } catch (e) {
+    return e as InstanceType<typeof ApiRequestError>;
+  } finally {
+    globalThis.fetch = stubbed;
+  }
+}
+const expired = await failure(reply(404, '{"error":{"code":"SESSION_EXPIRED","message":"m","recoverable":false}}'));
+check("404 SESSION_EXPIRED → code kept, not recoverable", expired?.code === "SESSION_EXPIRED" && expired.recoverable === false, expired?.code);
+const model = await failure(reply(503, '{"error":{"code":"MODEL_UNAVAILABLE","message":"m","recoverable":true}}'));
+check("503 MODEL_UNAVAILABLE → recoverable", model?.code === "MODEL_UNAVAILABLE" && model.recoverable === true);
+const proxyPage = await failure(reply(502, "<html>Bad Gateway</html>"));
+check("non-JSON 502 → INTERNAL_ERROR, recoverable", proxyPage?.code === "INTERNAL_ERROR" && proxyPage.recoverable === true, proxyPage?.code);
+const unknown = await failure(reply(400, '{"error":{"code":"WHATEVER","message":"m","recoverable":false}}'));
+check("unknown error code is normalized (not passed through)", unknown?.code === "INTERNAL_ERROR", unknown?.code);
+const offline = await failure((() => Promise.reject(new TypeError("fetch failed"))) as typeof fetch);
+check("network failure → NETWORK_ERROR, recoverable", offline?.code === "NETWORK_ERROR" && offline.recoverable === true, offline?.code);
+const ctrl = new AbortController();
+ctrl.abort();
+const aborted = await failure(((_u: unknown, init?: RequestInit) => (init?.signal?.aborted ? Promise.reject(new DOMException("aborted", "AbortError")) : Promise.resolve(new Response("{}")))) as typeof fetch, ctrl.signal);
+check("caller abort → ABORTED (ignored by the UI)", aborted !== null && isAbortError(aborted), aborted?.code);
+globalThis.fetch = reply(201, '{"state":{"x":1}}');
+const created = await request<{ state: { x: number } }>("/api/v1/sessions", { method: "POST", body: {} });
+globalThis.fetch = stubbed;
+check("201 is success (res.ok, not status === 200)", created.state.x === 1);
 
 if (OFFLINE) {
   console.log(failures ? `\n${failures} FAILED` : "\nall passed (offline)");

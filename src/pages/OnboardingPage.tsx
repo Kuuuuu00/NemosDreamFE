@@ -1,6 +1,8 @@
 import { TeamEmblem } from "@/components/common/TeamEmblem";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { ApiRequestError } from "@/api";
+import { ErrorBanner } from "@/components/common/ErrorBanner";
 import { Button } from "@/components/ui/button";
 import { GamePicker } from "@/components/onboarding/GamePicker";
 import { InningPicker } from "@/components/onboarding/InningPicker";
@@ -9,7 +11,7 @@ import { TeamGrid } from "@/components/onboarding/TeamGrid";
 import { useSessionParams } from "@/context/SessionContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useGames } from "@/hooks/useGames";
-import { useTeams } from "@/hooks/useTeams";
+import { useTeamsStatus } from "@/hooks/useTeams";
 
 type StepN = 1 | 2 | 3 | 4;
 
@@ -17,7 +19,12 @@ export default function OnboardingPage() {
   const navigate = useNavigate();
   const { setParams } = useSessionParams();
   const { theme, toggle } = useTheme();
-  const teams = useTeams();
+  const { teams, error: teamsError, retry: retryTeams } = useTeamsStatus();
+  // Coming back from an expired session (useExpiredRedirect): tell the user why.
+  const location = useLocation();
+  const [dismissedNotice, setDismissedNotice] = useState(false);
+  const expiredNotice = useMemo(() => new ApiRequestError("SESSION_EXPIRED", "", false), []);
+  const showExpiredNotice = (location.state as { notice?: string } | null)?.notice === "SESSION_EXPIRED" && !dismissedNotice;
 
   const [myTeam, setMyTeam] = useState<string | null>(null);
   const [oppTeam, setOppTeam] = useState<string | null>(null);
@@ -43,7 +50,7 @@ export default function OnboardingPage() {
     return () => ro.disconnect();
   }, []);
 
-  const { games, loading: gamesLoading } = useGames(myTeam, oppTeam);
+  const { games, loading: gamesLoading, error: gamesError, retry: retryGames } = useGames(myTeam, oppTeam);
 
   const opponentTeams = useMemo(() => teams.filter((t) => t.code !== myTeam), [teams, myTeam]);
   const selectedGame = useMemo(() => games.find((g) => g.gameId === gameId) ?? null, [games, gameId]);
@@ -118,6 +125,9 @@ export default function OnboardingPage() {
           </Button>
         </div>
 
+        {showExpiredNotice && <ErrorBanner error={expiredNotice} onDismiss={() => setDismissedNotice(true)} />}
+        {teamsError && <ErrorBanner error={teamsError} onRetry={retryTeams} />}
+
         <StepCard label="내 팀" open={s1.open} onReopen={s1.onReopen}
           summary={myTeamName}
           icon={myTeam ? <TeamEmblem code={myTeam} size={26} ring /> : undefined}
@@ -141,6 +151,7 @@ export default function OnboardingPage() {
             onReopen={s3.onReopen}
             summary={selectedGame ? `${selectedGame.date} · ${selectedGame.away} ${selectedGame.finalScore.away} : ${selectedGame.finalScore.home} ${selectedGame.home}` : ""}
           >
+            {gamesError && <ErrorBanner error={gamesError} onRetry={retryGames} className="mb-3" />}
             <GamePicker games={games} loading={gamesLoading} selectedGameId={gameId} onSelect={pickGame} />
           </StepCard>
         )}

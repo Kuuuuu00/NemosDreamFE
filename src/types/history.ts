@@ -62,8 +62,10 @@ export interface GameHistory {
   recordPa(args: { result: PAResult; pitcherId: number; pitcherName: string; changed: boolean; prevState: GameState }): void;
   /** `POST /advance-half`: log the summary, break the line, record the next defense state. Pushes one undo step. */
   recordAdvanceHalf(args: { summary: AdvanceHalfSummary; offenseInning: number; offenseHalf: Half; state: GameState }): void;
-  /** `POST /undo`: pop one step, truncate log and series to it. Dev assertion: last point's `li` === `state.leverageIndex` (console.warn on mismatch — also checks live finding "undo after an offense half lands on the offense start"). */
+  /** `POST /undo`: pop one step, truncate log and series to it. Dev assertion: last point's `li` === `state.leverageIndex` (console.warn on mismatch — also checks live finding "undo after an offense half lands on the offense start"). If the local stack is empty although the server undid a step, history is reset and re-recorded from `state` so the screen never disagrees with the log/chart. */
   recordUndo(state: GameState): void;
-  /** Rehydrate from sessionStorage (`historyStorageKey(sessionId)`); false when absent or for another session. */
-  restore(sessionId: string): boolean;
+  /** Serializable snapshot (log + LI series + undo stack). Saved by the session hook together with the server state, under one sessionStorage key. */
+  exportState(): unknown;
+  /** Rehydrate from a previous `exportState()`; false when invalid or for another session. */
+  restore(data: unknown, sessionId: string): boolean;
 }

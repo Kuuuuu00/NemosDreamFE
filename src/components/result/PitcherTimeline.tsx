@@ -1,9 +1,19 @@
 import { Card } from "@/components/ui/card";
-import { signed, timelineSpans } from "@/lib/resultDisplay";
-import type { PitcherUsageSegment } from "@/types/api";
+import { halfPaTotals, signed, timelineSpans } from "@/lib/resultDisplay";
+import type { DecisionLogEntry, PitcherUsageSegment } from "@/types/api";
 
-function Bars({ segments, accent, startInning }: { segments: PitcherUsageSegment[]; accent: boolean; startInning: number }) {
-  const spans = timelineSpans(segments, startInning);
+function Bars({
+  segments,
+  accent,
+  startInning,
+  halfTotals,
+}: {
+  segments: PitcherUsageSegment[];
+  accent: boolean;
+  startInning: number;
+  halfTotals?: ReadonlyMap<string, number>;
+}) {
+  const spans = timelineSpans(segments, startInning, halfTotals);
   return (
     <div className="flex gap-1">
       {segments.map((seg, i) => (
@@ -30,6 +40,8 @@ function Bars({ segments, accent, startInning }: { segments: PitcherUsageSegment
 interface PitcherTimelineProps {
   pitcherUsage: PitcherUsageSegment[];
   actualPitcherUsage: PitcherUsageSegment[];
+  /** My decisions: one row per defensive PA → exact half lengths for MY row. */
+  decisions: DecisionLogEntry[];
   startInning: number;
 }
 
@@ -38,9 +50,10 @@ interface PitcherTimelineProps {
  * manager path, so it can't be the shared unit). 3 outs = one half-inning, so
  * inning-boundary divider lines land exactly on multiples of 3 regardless of
  * where either row's segment boundaries fall. */
-export function PitcherTimeline({ pitcherUsage, actualPitcherUsage, startInning }: PitcherTimelineProps) {
+export function PitcherTimeline({ pitcherUsage, actualPitcherUsage, decisions, startInning }: PitcherTimelineProps) {
+  const myHalfTotals = halfPaTotals(decisions);
   const totalOut = Math.max(
-    timelineSpans(pitcherUsage, startInning).at(-1)?.end ?? 0,
+    timelineSpans(pitcherUsage, startInning, myHalfTotals).at(-1)?.end ?? 0,
     timelineSpans(actualPitcherUsage, startInning).at(-1)?.end ?? 0,
     1,
   );
@@ -81,7 +94,7 @@ export function PitcherTimeline({ pitcherUsage, actualPitcherUsage, startInning 
             내 운용
           </span>
           <div style={{ gridColumn: 2, gridRow: 2 }}>
-            <Bars segments={pitcherUsage} accent startInning={startInning} />
+            <Bars segments={pitcherUsage} accent startInning={startInning} halfTotals={myHalfTotals} />
           </div>
 
           <span style={{ gridColumn: 1, gridRow: 3 }} className="pt-3 text-xs text-muted-foreground">

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, ApiRequestError, createLatest, isAbortError, isApiError, mockExtras } from "@/api";
-import { loadSnapshot } from "@/api/sessionStore";
+import { api, ApiRequestError, createLatest, isAbortError, isApiError, mockExtras, USE_MOCK } from "@/api";
+import { loadSnapshot, saveSnapshot } from "@/api/sessionStore";
 import { useGameHistory } from "@/hooks/useGameHistory";
 import { useInFlight } from "@/hooks/useInFlight";
 import type { RecommendationResult } from "@/types/recommendation";
@@ -31,6 +31,12 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 export interface UsageTimeline {
   mine: PitcherUsageSegment[];
   actual: PitcherUsageSegment[];
+}
+
+export interface SimulateArgs {
+  pitcherId: string;
+  pitcherName: string;
+  changed: boolean;
 }
 
 export interface AdvanceOutcome {
@@ -94,6 +100,9 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
   const stateRef = useRef<GameState | null>(null);
   const recommendDataRef = useRef<RecommendResponse | null>(null);
   const startRef = useRef<() => void>(() => {});
+  /** What `retry` re-runs: the last failed action (cleared when a new action starts). */
+  const retryRef = useRef<(() => void) | null>(null);
+  const actionsRef = useRef<{ simulate: (a: SimulateArgs) => Promise<unknown>; advance: () => Promise<unknown>; undo: () => Promise<unknown> } | null>(null);
   // Late responses must not overwrite newer ones.
   const weTraceGuard = useRef(createLatest());
   const resultGuard = useRef(createLatest());
@@ -102,6 +111,17 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
   const applyState = useCallback((s: GameState) => {
     stateRef.current = s;
     setState(s);
+  }, []);
+
+  /**
+   * Save the confirmed server state and the matching history together, under
+   * one sessionStorage key. Call exactly once, after BOTH are updated at the end
+   * of a successful response (never between the two updates).
+   * TODO(backend): obsolete once `GET /sessions/{id}` exists (REPORT #4).
+   */
+  const persist = useCallback((id: string, s: GameState) => {
+    if (USE_MOCK) return; // mock sessions don't survive a refresh anyway
+    saveSnapshot(id, s, historyRef.current.exportState());
   }, []);
 
   const fail = useCallback((e: unknown) => {
@@ -212,7 +232,8 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
         sessionIdRef.current = initial.sessionId;
         setSessionId(initial.sessionId);
         applyState(initial);
-        if (!snap || !historyRef.current.restore(initial.sessionId)) historyRef.current.recordStart(initial);
+        if (!snap || !historyRef.current.restore(snap.history, initial.sessionId)) historyRef.current.recordStart(initial);
+        persist(initial.sessionId, initial);
         const ok = await refreshAll(initial.sessionId, initial);
         if (cancelled) return;
         setStatus(ok ? "ready" : "error");
@@ -239,7 +260,7 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
    * Returns null if ignored (action in flight) or failed (see `error`).
    */
   const simulate = useCallback(
-    async (args: { pitcherId: string; pitcherName: string; changed: boolean }) => {
+    async (args: SimulateArgs) => {
       const id = sessionIdRef.current;
       const prev = stateRef.current;
       if (!id || !prev || prev.myRole !== "defense" || prev.isGameOver) return null;
@@ -247,6 +268,7 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
       const actual = recommendDataRef.current?.actualDecision ?? null;
       const out = await run(async () => {
         setError(null);
+        retryRef.current = null;
         try {
           const { result } = await api.simulatePa(id, args.pitcherId);
           // pitcherId as a number is log metadata only; the request used the string.
@@ -258,18 +280,21 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
             prevState: prev,
           });
           applyState(result.nextState); // server state replaces ours wholesale
+          persist(id, result.nextState);
           setLastResult(result);
           setDecidedActual(actual);
           await refreshAll(id, result.nextState);
           return { result, prevState: prev };
         } catch (e) {
+          // NOTE: no state-read API exists (REPORT #4), so after a lost response we can't tell whether the server applied the PA.
+          retryRef.current = () => void actionsRef.current?.simulate(args);
           fail(e);
           return null;
         }
       });
       return out ?? null;
     },
-    [applyState, fail, refreshAll, run],
+    [applyState, fail, persist, refreshAll, run],
   );
 
   /** `POST /advance-half` (held ≥ 2s). Only valid in an offense state. */
@@ -279,6 +304,7 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
     if (!id || !off || off.myRole !== "offense" || off.isGameOver) return null;
     const out = await run(async () => {
       setError(null);
+      retryRef.current = null;
       try {
         const [res] = await Promise.all([api.advanceHalf(id), sleep(MIN_ADVANCE_MS)]);
         const outcome: AdvanceOutcome = { summary: res.summary, offenseInning: off.inning, offenseHalf: off.half, state: res.state };
@@ -289,37 +315,50 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
           state: res.state,
         });
         applyState(res.state);
+        persist(id, res.state);
         await refreshAll(id, res.state);
         return outcome;
       } catch (e) {
+        retryRef.current = () => void actionsRef.current?.advance();
         fail(e);
         return null;
       }
     });
     return out ?? null;
-  }, [applyState, fail, refreshAll, run]);
+  }, [applyState, fail, persist, refreshAll, run]);
 
   const undo = useCallback(async () => {
     const id = sessionIdRef.current;
     if (!id) return;
     await run(async () => {
       setError(null);
+      retryRef.current = null;
       try {
         const { state: prev } = await api.undoLast(id);
         historyRef.current.recordUndo(prev); // pops log + LI series together
         applyState(prev);
+        persist(id, prev);
         setLastResult(null);
         setDecidedActual(null);
         await refreshAll(id, prev);
       } catch (e) {
+        retryRef.current = () => void actionsRef.current?.undo();
         fail(e);
       }
     });
-  }, [applyState, fail, refreshAll, run]);
+  }, [applyState, fail, persist, refreshAll, run]);
+
+  actionsRef.current = { simulate, advance, undo };
 
   /** Retry whatever failed last: a failed start restarts; otherwise re-sync the current state. */
   const retry = useCallback(() => {
     setError(null);
+    const replay = retryRef.current;
+    retryRef.current = null;
+    if (replay) {
+      replay(); // re-run the failed simulate / advance / undo
+      return;
+    }
     const id = sessionIdRef.current;
     const s = stateRef.current;
     if (!id || !s) {
@@ -345,6 +384,11 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
     /** Last failed call (never `ABORTED`); the page / banner decides how to show it. */
     error,
     retry,
+    /** Dismiss the banner without retrying. */
+    clearError: () => {
+      retryRef.current = null;
+      setError(null);
+    },
     /** True while simulate-pa / advance-half / undo is in flight: disable those buttons. */
     simulating: inFlight,
     lastResult,

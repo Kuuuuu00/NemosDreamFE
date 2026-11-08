@@ -23,7 +23,9 @@ import { useSessionParams } from "@/context/SessionContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useGameSession } from "@/hooks/useGameSession";
 import { useHalfTransition } from "@/hooks/useHalfTransition";
+import { ErrorBanner } from "@/components/common/ErrorBanner";
 import { useConfig } from "@/hooks/useConfig";
+import { useExpiredRedirect } from "@/hooks/useExpiredRedirect";
 import { useTeams } from "@/hooks/useTeams";
 import { OUTCOME_LABELS } from "@/lib/outcomeDisplay";
 import type { AdvanceHalfSummary } from "@/types/api";
@@ -59,7 +61,13 @@ export default function GameDashboardPage() {
     simulate,
     advance,
     undo,
+    error,
+    retry,
+    clearError,
   } = session;
+
+  // SESSION_EXPIRED → forget the session and go back to onboarding with a notice.
+  useExpiredRedirect(error);
 
   // Never pre-filled: the user picks a reliever themselves (no auto-select of #1).
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -162,12 +170,16 @@ export default function GameDashboardPage() {
     navigate("/");
   }
 
-  if (status === "error" && !state) {
+  // The session never came up, or a required call (recommend) failed before the
+  // first screen could be drawn: nothing to show but the error. SESSION_EXPIRED
+  // is handled by the redirect above; GAME_NOT_FOUND can't be retried.
+  const blockedByError = !!error && error.code !== "SESSION_EXPIRED" && (!state || (state.myRole === "defense" && !noAvailablePitcher && !recommendation));
+  if (blockedByError && error) {
     return (
-      <div className="flex min-h-screen w-full flex-col items-center justify-center gap-4 bg-background text-foreground">
-        <span className="text-sm text-muted-foreground">세션을 불러오지 못했습니다.</span>
+      <div className="flex min-h-screen w-full flex-col items-center justify-center gap-4 bg-background px-4 text-foreground">
+        <ErrorBanner error={error} onRetry={retry} className="w-full max-w-[560px]" />
         <Button variant="primary" onClick={handleNewGame}>
-          온보딩으로 돌아가기
+          경기 선택으로 돌아가기
         </Button>
       </div>
     );
@@ -215,6 +227,8 @@ export default function GameDashboardPage() {
             </Button>
           </div>
         </div>
+
+        {error && error.code !== "SESSION_EXPIRED" && <ErrorBanner error={error} onRetry={retry} onDismiss={clearError} />}
 
         <ScoreHeader state={state} myTeamName={teamName(state.myTeam)} oppTeamName={teamName(state.opponentTeam)} />
 

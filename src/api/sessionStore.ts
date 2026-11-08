@@ -19,9 +19,19 @@ export interface SessionMeta extends SessionParams {
 
 const KEY_CURRENT = "nemo:current-session";
 const keyMeta = (id: string) => `nemo:session:${id}:meta`;
-const keyState = (id: string) => `nemo:session:${id}:state`;
-/** Reserved for `useGameHistory` (log + LI series + undo stack share one key per session). */
-export const historyStorageKey = (id: string) => `nemo:session:${id}:history`;
+/**
+ * `{ state, history }` live under ONE key and are written together, once, at
+ * the end of each successful response. They can't drift apart across a page
+ * refresh (state from after an undo with a history from before it, etc.).
+ * `meta` is written once at session start and never changes.
+ */
+const keySnapshot = (id: string) => `nemo:session:${id}:snapshot`;
+
+interface StoredSnapshot {
+  state: GameState;
+  /** `useGameHistory`'s serialized store (opaque here); null until the first save. */
+  history: unknown | null;
+}
 
 function read<T>(key: string): T | null {
   try {
@@ -64,11 +74,12 @@ export function resolveGameTeams(gameId: string): { home: string; away: string; 
 export function saveSession(meta: SessionMeta, state: GameState): void {
   write(KEY_CURRENT, meta.sessionId);
   write(keyMeta(meta.sessionId), meta);
-  write(keyState(meta.sessionId), state);
+  write(keySnapshot(meta.sessionId), { state, history: null } satisfies StoredSnapshot);
 }
 
-export function saveState(sessionId: string, state: GameState): void {
-  write(keyState(sessionId), state);
+/** Persist the confirmed server `state` together with the matching history. Call once, after both are updated. */
+export function saveSnapshot(sessionId: string, state: GameState, history: unknown): void {
+  write(keySnapshot(sessionId), { state, history } satisfies StoredSnapshot);
 }
 
 export function loadMeta(sessionId: string): SessionMeta | null {
@@ -79,15 +90,15 @@ export function currentSessionId(): string | null {
   return read<string>(KEY_CURRENT);
 }
 
-/** Last saved state + meta for a session, or null (never saved / storage unavailable). */
-export function loadSnapshot(sessionId: string): { meta: SessionMeta; state: GameState } | null {
+/** Last saved state + history + meta for a session, or null (never saved / storage unavailable). */
+export function loadSnapshot(sessionId: string): { meta: SessionMeta; state: GameState; history: unknown | null } | null {
   const meta = loadMeta(sessionId);
-  const state = read<GameState>(keyState(sessionId));
-  return meta && state ? { meta, state } : null;
+  const snap = read<StoredSnapshot>(keySnapshot(sessionId));
+  return meta && snap?.state ? { meta, state: snap.state, history: snap.history ?? null } : null;
 }
 
 /** Snapshot of the session the user was last in (page refresh on /game). */
-export function loadCurrentSnapshot(): { meta: SessionMeta; state: GameState } | null {
+export function loadCurrentSnapshot(): { meta: SessionMeta; state: GameState; history: unknown | null } | null {
   const id = currentSessionId();
   return id ? loadSnapshot(id) : null;
 }
@@ -96,8 +107,7 @@ export function loadCurrentSnapshot(): { meta: SessionMeta; state: GameState } |
 export function clearSession(sessionId: string): void {
   try {
     sessionStorage.removeItem(keyMeta(sessionId));
-    sessionStorage.removeItem(keyState(sessionId));
-    sessionStorage.removeItem(historyStorageKey(sessionId));
+    sessionStorage.removeItem(keySnapshot(sessionId));
     if (currentSessionId() === sessionId) sessionStorage.removeItem(KEY_CURRENT);
   } catch {
     /* ignore */
