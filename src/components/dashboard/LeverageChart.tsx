@@ -1,43 +1,41 @@
 import { useMemo } from "react";
 import { Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { WeTraceResponse } from "@/types/api";
+import type { LeverageBandDef } from "@/types/api";
+import type { LiPoint } from "@/types/history";
 
 interface LeverageChartProps {
-  weTrace: WeTraceResponse;
+  /** Recorded server `GameState.leverage_index` per defensive PA (null = break between half-innings). */
+  liSeries: LiPoint[];
+  bands: LeverageBandDef[];
+  leagueAvg: number;
   currentLI: number;
-  /** Share of the league LI distribution this LI sits below (0–100). */
-  liPercentile: number;
+  /** Share of the league LI distribution this LI sits below (0–100); null = unknown (hidden). */
+  liPercentile: number | null;
 }
 
-export function LeverageChart({ weTrace, currentLI, liPercentile }: LeverageChartProps) {
-  // LI has no "actual full game" reference curve the way WE does — it's
-  // derived purely from live session state (inning/outs/base/score), so the
-  // chart only ever shows what's actually been played so far, appended one
-  // point per PA as the session progresses (never a precomputed 9-inning
-  // array sliced down). The last point is always `weTrace.current`'s LI
-  // source (`state.leverageIndex`), matching the "현재" figure above.
-  const data = useMemo(() => {
-    // Each PA appends its own point, so a half-inning with several PAs
-    // would otherwise repeat its label ("6회말 · 6회말 · 6회말 · 7회말").
-    // Only the first PA of a half-inning gets a tick label; later PAs in
-    // the same half plot a point with a blank tick and carry the specific
-    // "N회X M번째 타석" text for the tooltip instead.
-    const seenCount = new Map<string, number>();
-    return weTrace.simulated.map((p) => {
-      const halfKey = `${p.inning}-${p.half}`;
-      const n = (seenCount.get(halfKey) ?? 0) + 1;
-      seenCount.set(halfKey, n);
-      const halfLabel = `${p.inning}회${p.half === "top" ? "초" : "말"}`;
-      return {
-        key: `${halfKey}-${n}`,
-        tickLabel: n === 1 ? halfLabel : "",
-        paLabel: `${halfLabel} ${n}번째 타석`,
-        li: p.leverageIndex ?? 0,
-      };
-    });
-  }, [weTrace]);
+function bandLabel(li: number, bands: LeverageBandDef[]): string {
+  return bands.find((b) => li >= b.min && li < b.max)?.label ?? bands[bands.length - 1]?.label ?? "";
+}
 
-  const maxLi = Math.max(3, ...data.map((d) => d.li), currentLI);
+export function LeverageChart({ liSeries, bands, leagueAvg, currentLI, liPercentile }: LeverageChartProps) {
+  // Nothing is computed here: points are the server's per-state LI, recorded by
+  // useGameHistory (defense states only). A `li: null` point breaks the line
+  // (connectNulls=false) so each defensive half-inning is its own segment.
+  // X is the recording order; only the first point of a half carries a label.
+  const data = useMemo(
+    () =>
+      liSeries.map((p) => ({
+        key: p.seq,
+        tickLabel: p.label ?? "",
+        paLabel: `${p.inning}회${p.half === "top" ? "초" : "말"} ${p.paInHalf}번째 타석`,
+        li: p.li,
+      })),
+    [liSeries],
+  );
+  const highMin = bands.length > 0 ? bands[bands.length - 1].min : 1.5;
+  const boundaries = bands.map((b) => b.min).filter((m) => m > 0 && m !== leagueAvg);
+
+  const maxLi = Math.max(3, ...data.map((d) => d.li ?? 0), currentLI);
 
   return (
     <div className="flex flex-col">
@@ -55,7 +53,7 @@ export function LeverageChart({ weTrace, currentLI, liPercentile }: LeverageChar
             className="whitespace-nowrap text-[11px] text-muted-foreground"
             title="상황 중요도. 문형우 외(2016) 승리확률 테이블 기반"
           >
-            리그 상위 {Math.max(1, Math.round(100 - liPercentile))}%
+            {liPercentile != null ? `리그 상위 ${Math.max(1, Math.round(100 - liPercentile))}%` : ""}
           </span>
         </div>
       </div>
@@ -70,15 +68,18 @@ export function LeverageChart({ weTrace, currentLI, liPercentile }: LeverageChar
               axisLine={{ stroke: "var(--border)" }}
               tickLine={false}
             />
-            <ReferenceArea y1={1.5} y2={maxLi} fill="var(--chart-5)" fillOpacity={0.09} />
-            <ReferenceLine y={1.0} stroke="var(--muted-foreground)" strokeDasharray="3 3" label={{ value: "리그평균 1.0", position: "insideTopRight", fontSize: 9, fill: "var(--muted-foreground)" }} />
+            <ReferenceArea y1={highMin} y2={maxLi} fill="var(--chart-5)" fillOpacity={0.09} />
+            {boundaries.map((m) => (
+              <ReferenceLine key={m} y={m} stroke="var(--muted-foreground)" strokeOpacity={0.5} strokeDasharray="1 3" />
+            ))}
+            <ReferenceLine y={leagueAvg} stroke="var(--muted-foreground)" strokeDasharray="3 3" label={{ value: `리그평균 ${leagueAvg.toFixed(1)}`, position: "insideTopRight", fontSize: 9, fill: "var(--muted-foreground)" }} />
             <Tooltip
               contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 11 }}
               labelStyle={{ color: "var(--foreground)" }}
               labelFormatter={(_, payload) => (payload?.[0]?.payload as { paLabel?: string } | undefined)?.paLabel ?? ""}
-              formatter={(value) => [Number(value).toFixed(2), "LI"]}
+              formatter={(value) => [`${Number(value).toFixed(2)} (${bandLabel(Number(value), bands)})`, "LI"]}
             />
-            <Line type="monotone" dataKey="li" stroke="var(--chart-5)" strokeWidth={2} dot={data.length < 2} isAnimationActive={false} />
+            <Line type="linear" dataKey="li" connectNulls={false} stroke="var(--chart-5)" strokeWidth={2} dot={data.length < 2} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>

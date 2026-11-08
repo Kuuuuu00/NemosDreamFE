@@ -14,6 +14,7 @@ export function ResultHeader({ result, teamName }: ResultHeaderProps) {
         {result.date} {teamName(result.myTeam)} vs {teamName(result.oppTeam)} · {result.venue} · {result.startInning}회
         {halfLabel}부터 진행
       </span>
+      {result.result === "in_progress" && <span className="text-[13px] text-primary">경기 진행 중 기준</span>}
     </div>
   );
 }

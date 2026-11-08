@@ -17,8 +17,6 @@ function toKind(v: string): ResultKind {
   return "in_progress";
 }
 
-const legacyWin = (k: ResultKind): boolean | null => (k === "win" ? true : k === "loss" ? false : null);
-
 /**
  * Live responses send `score: {my, opp}`; the OpenAPI schema says
  * `{home, away}` (springdoc name clash — REPORT #6). Accept both so a
@@ -31,12 +29,7 @@ function toMineOpp(score: RawSide["score"], meta: SessionMeta): { mine: number; 
   return meta.myTeam === meta.homeTeam ? { mine: home, opp: away } : { mine: away, opp: home };
 }
 
-function toSegment(u: RawPitcherUsage, meta: SessionMeta): PitcherUsageSegment {
-  // Timeline unit = cumulative defensive outs since session start. The
-  // server gives (inning, half, pa) only, so segments are placed at
-  // half-inning granularity. TODO(3-2 result agent): refine if needed.
-  const fromHalf = Math.max(0, u.from.inning - meta.startInning);
-  const toHalf = Math.max(fromHalf, u.to.inning - meta.startInning);
+function toSegment(u: RawPitcherUsage): PitcherUsageSegment {
   const sameHalf = u.from.inning === u.to.inning && u.from.half === u.to.half;
   return {
     pitcherId: u.pitcher_id,
@@ -46,9 +39,11 @@ function toSegment(u: RawPitcherUsage, meta: SessionMeta): PitcherUsageSegment {
     fromHalf: asHalf(u.from.half),
     toInning: u.to.inning,
     toHalf: asHalf(u.to.half),
+    // `pa` is 0-based within the half and `to` is inclusive (samples/result.json:
+    // 김서현 0→1 = 2 PAs, 와이스 2→2 = 1 PA).
+    fromPa: u.from.pa,
+    toPa: u.to.pa,
     paCount: sameHalf ? u.to.pa - u.from.pa + 1 : 0,
-    fromOut: fromHalf * 3,
-    toOut: (toHalf + 1) * 3,
     deltaWeSum: u.delta_we_defender,
     enteredLI: u.li_at_entry,
   };
@@ -93,15 +88,13 @@ export function toResult(r: RawResult, meta: SessionMeta): SimulationResult {
     startHalf: defensiveHalf(meta.myTeam, meta.homeTeam),
     myFinalScore: toMineOpp(r.simulated.score, meta),
     result,
-    myWin: legacyWin(result),
     actualFinalScore: toMineOpp(r.actual.score, meta),
     actualResult,
-    actualWin: legacyWin(actualResult),
     runsAllowedInRange: { mine: r.simulated.runs_allowed_in_range, actual: r.actual.runs_allowed_in_range },
     finalWeDiff,
     weDiffReferenceLabel: "최종 승률 · 실제 경기 대비",
-    pitcherUsage: r.pitcher_usage.map((u) => toSegment(u, meta)),
-    actualPitcherUsage: r.actual_pitcher_usage.map((u) => toSegment(u, meta)),
+    pitcherUsage: r.pitcher_usage.map((u) => toSegment(u)),
+    actualPitcherUsage: r.actual_pitcher_usage.map((u) => toSegment(u)),
     decisions: r.decisions.map(toDecision),
     pitcherChanges: Math.max(0, r.pitcher_usage.length - 1),
     actualPitcherChanges: Math.max(0, r.actual_pitcher_usage.length - 1),

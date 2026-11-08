@@ -2,16 +2,19 @@ import { AnimatePresence, motion } from "framer-motion";
 import { OutcomeEffect } from "@/components/game/OutcomeEffect";
 import { Card } from "@/components/ui/card";
 import { outcomeTone } from "@/lib/outcomeDisplay";
-import type { PAResult } from "@/types/api";
+import type { ActualDecision, PAResult } from "@/types/api";
 
 export function OutcomePanel({
   result,
   simulating,
   paIndex,
+  actualDecision = null,
 }: {
   result: PAResult | null;
   simulating: boolean;
   paIndex: number;
+  /** The real manager's choice for this PA — revealed only after the user decided; null hides it. */
+  actualDecision?: ActualDecision | null;
 }) {
   return (
     <Card className="overflow-hidden p-0">
@@ -42,15 +45,25 @@ export function OutcomePanel({
         </AnimatePresence>
       </div>
       {result && !simulating && (
-        <div className="p-[10px_16px] text-xs text-muted-foreground">
-          이 결과가 나올 확률은{" "}
-          <span
-            className="font-medium"
-            style={{ color: outcomeTone(result.outcome) === "good" ? "var(--primary)" : "var(--destructive)" }}
-          >
-            {(result.probability * 100).toFixed(1)}%
-          </span>
-          였습니다
+        <div className="flex flex-col gap-1 p-[10px_16px] text-xs text-muted-foreground">
+          {/* TODO(backend): REPORT #15 확인 전까지 actual 타석 probs 숨김 (probability도 같은 placeholder 의심) */}
+          {result.source !== "actual" && (
+            <div>
+              이 결과가 나올 확률은{" "}
+              <span
+                className="font-medium"
+                style={{ color: outcomeTone(result.outcome) === "good" ? "var(--primary)" : "var(--destructive)" }}
+              >
+                {(result.probability * 100).toFixed(1)}%
+              </span>
+              였습니다
+            </div>
+          )}
+          {actualDecision && (
+            <div>
+              실제 감독 선택: {actualDecision.name} ({actualDecision.wasChange ? "교체" : "유지"})
+            </div>
+          )}
         </div>
       )}
     </Card>

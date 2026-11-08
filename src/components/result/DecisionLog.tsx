@@ -1,4 +1,4 @@
-import { choiceWithRank, modelTop, situationLabel } from "@/lib/resultDisplay";
+import { choiceWithRank, modelTop, runsScoredLabel, situationLabel } from "@/lib/resultDisplay";
 import type { DecisionLogEntry } from "@/types/api";
 
 interface DecisionLogProps {
@@ -33,7 +33,7 @@ export function DecisionLog({ decisions }: DecisionLogProps) {
                 <span className="text-muted-foreground">{real ?? "— (분기 이후라 비교 불가)"}</span>
                 <span className="text-muted-foreground">결과</span>
                 <span style={{ color: goodOutcome ? "var(--primary)" : "var(--destructive)" }}>
-                  {d.outcomeLabel} → {d.runsScored === null ? "—" : d.runsScored > 0 ? `${d.runsScored}실점` : "무실점"} · ΔWE {goodOutcome ? "+" : ""}
+                  {d.outcomeLabel} → {runsScoredLabel(d.runsScored)} · ΔWE {goodOutcome ? "+" : ""}
                   {d.deltaWeDefender.toFixed(2)}
                 </span>
               </div>

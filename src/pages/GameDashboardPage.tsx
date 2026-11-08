@@ -18,49 +18,94 @@ import { InningTransition } from "@/components/game/InningTransition";
 import { OffenseHalfOverlay } from "@/components/game/OffenseHalfOverlay";
 import { WinProbabilityChart } from "@/components/dashboard/WinProbabilityChart";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { useSessionParams } from "@/context/SessionContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useGameSession } from "@/hooks/useGameSession";
 import { useHalfTransition } from "@/hooks/useHalfTransition";
+import { useConfig } from "@/hooks/useConfig";
 import { useTeams } from "@/hooks/useTeams";
 import { OUTCOME_LABELS } from "@/lib/outcomeDisplay";
+import type { AdvanceHalfSummary } from "@/types/api";
+
+/** My-team WE swing of an offense half. TODO(backend): server `delta_we` per half (REPORT #3); until then derived from `weTrace`. */
+function halfDeltaWe(summary: AdvanceHalfSummary): number {
+  const t = summary.weTrace;
+  return t.length >= 2 ? t[t.length - 1] - t[0] : 0;
+}
 
 export default function GameDashboardPage() {
-  const { params, clear } = useSessionParams();
+  const { params, resumeSessionId, clear } = useSessionParams();
   const navigate = useNavigate();
   const { theme, toggle } = useTheme();
   const teams = useTeams();
-  const session = useGameSession(params);
-  const { sessionId, state, recommendData, recommendation, usageToday, usedTonight, weTrace, status, simulating, lastResult, simulate, undo } =
-    session;
+  const config = useConfig();
+  const session = useGameSession(params, resumeSessionId);
+  const {
+    sessionId,
+    state,
+    recommendData,
+    recommendation,
+    noAvailablePitcher,
+    usageToday,
+    usedTonight,
+    usageTimeline,
+    weTrace,
+    status,
+    simulating,
+    lastResult,
+    decidedActual,
+    history,
+    simulate,
+    advance,
+    undo,
+  } = session;
 
   // Never pre-filled: the user picks a reliever themselves (no auto-select of #1).
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { phase, startInning, playHalfEnd, finishOffense, finishInning, cancel } = useHalfTransition();
+  const { phase, startInning, holdPaResult, showOffense, finishOffense, finishInning, cancel } = useHalfTransition();
   const startedFor = useRef<string | null>(null);
-  const [log, setLog] = useState<AtBatLogEntry[]>([]);
 
   useEffect(() => {
     setSelectedId(null);
   }, [state?.currentPitcher.pitcherId]);
 
-  // "경기 종료" is a page transition, not a state to render in place (§ 결과
-  // 대시보드는 /result 라우트) — the inline end-of-game block this used to
-  // show here has been replaced by this redirect.
+  // "경기 종료" is a page transition (/result route), not an in-place state.
   useEffect(() => {
     if (state?.isGameOver && sessionId) navigate(`/result/${sessionId}`);
   }, [state?.isGameOver, sessionId, navigate]);
 
-  // Opening overlay: once per session, after the dashboard can render (teams
-  // loaded so the subtitle is final). Guarded by a ref, so re-renders
-  // can never replay it.
+  // Opening overlay: once per session, only when we start on a defense half.
   useEffect(() => {
     if (status !== "ready" || !state || !sessionId || teams.length === 0) return;
     if (startedFor.current === sessionId) return;
     startedFor.current = sessionId;
-    if (!state.isGameOver) startInning(state.inning, state.half);
+    if (!state.isGameOver && state.myRole === "defense") startInning(state.inning, state.half);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, sessionId, teams.length]);
+
+  const atBatLog = useMemo<AtBatLogEntry[]>(
+    () =>
+      history.log.map((e): AtBatLogEntry =>
+        e.kind === "pa"
+          ? {
+              kind: "pa",
+              inning: e.inning,
+              half: e.half,
+              batter: e.batter,
+              outcomeLabel: e.result.outcomeLabel,
+              deltaWeDefenderPct: e.result.deltaWeDefender * 100,
+            }
+          : {
+              kind: "offenseHalf",
+              inning: e.inning,
+              half: e.half,
+              runs: e.summary.runs,
+              deltaWePct: halfDeltaWe(e.summary) * 100,
+            },
+      ),
+    [history.log],
+  );
 
   const teamName = useMemo(() => {
     const map = new Map(teams.map((t) => [t.code, t.name]));
@@ -69,66 +114,46 @@ export default function GameDashboardPage() {
 
   if (!params) return <Navigate to="/" replace />;
 
-  async function handleCommit(pitcherId: number) {
-    if (!state) return;
+  /** advance-half (held ≥ 2s by the hook) → offense summary overlay → next inning overlay. */
+  async function runAdvance() {
+    holdPaResult();
+    const out = await advance();
+    if (!out || out.state.isGameOver) {
+      cancel(); // failure: state stays on the offense start → "공격 진행" button retries
+      return;
+    }
+    showOffense(
+      {
+        inning: out.offenseInning,
+        half: out.offenseHalf,
+        runs: out.summary.runs,
+        hits: out.summary.hits,
+        deltaWe: halfDeltaWe(out.summary),
+        paLog: out.summary.paLog.map((p) => ({
+          batter: p.batter,
+          outcome: p.outcome,
+          outcomeLabel: OUTCOME_LABELS[p.outcome],
+          runsScored: p.runsScored ?? undefined,
+        })),
+      },
+      out.state.myRole === "defense" ? { inning: out.state.inning, half: out.state.half } : null,
+    );
+  }
+
+  async function handleCommit(args: { pitcherId: string; pitcherName: string; changed: boolean }) {
+    if (!state || state.myRole !== "defense") return;
     if (phase.kind === "paResult" || phase.kind === "offense") return;
     setSelectedId(null);
-    const batter = state.currentBatter.name;
-    const inning = state.inning;
-    const half = state.half;
-    const result = await simulate(pitcherId);
-    if (result) {
-      const oh = result.offenseHalfSummary;
-      // Game over → straight to /result (effect above); no overlays.
-      if (oh && !result.nextState.isGameOver) {
-        playHalfEnd(
-          {
-            inning: oh.inning,
-            half: oh.half,
-            runs: oh.runs,
-            hits: oh.hits,
-            deltaWe: oh.deltaWe,
-            paLog: oh.paLog.map((p) => ({
-              batter: p.batter,
-              outcome: p.outcome,
-              outcomeLabel: OUTCOME_LABELS[p.outcome],
-              runsScored: p.runsScored,
-            })),
-          },
-          { inning: result.nextState.inning, half: result.nextState.half },
-        );
-      }
-      setLog((prev) => {
-        const next: AtBatLogEntry[] = [
-          ...prev,
-          {
-            kind: "pa",
-            inning,
-            half,
-            batter,
-            outcomeLabel: result.outcomeLabel,
-            deltaWeDefenderPct: result.deltaWeDefender * 100,
-          },
-        ];
-        // The auto-played offense half (if this PA ended the inning) gets
-        // its own row — its WE swing is never the pitcher's contribution,
-        // so it must never be merged into the PA entry above (§3).
-        if (result.offenseHalfSummary) {
-          next.push({
-            kind: "offenseHalf",
-            inning: result.offenseHalfSummary.inning,
-            half: result.offenseHalfSummary.half,
-            runs: result.offenseHalfSummary.runs,
-            deltaWePct: result.offenseHalfSummary.deltaWe * 100,
-          });
-        }
-        return next;
-      });
-    }
+    const out = await simulate(args);
+    if (!out) return;
+    const next = out.result.nextState;
+    if (next.isGameOver) return; // effect above navigates to /result
+    if (next.myRole === "offense") await runAdvance();
   }
 
   function handleUndo() {
     cancel();
+    setSelectedId(null);
     void undo();
   }
 
@@ -137,15 +162,7 @@ export default function GameDashboardPage() {
     navigate("/");
   }
 
-  if (status === "loading" || !state || !recommendData || !recommendation) {
-    return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-background text-foreground">
-        <span className="text-sm text-muted-foreground">세션을 준비하는 중...</span>
-      </div>
-    );
-  }
-
-  if (status === "error") {
+  if (status === "error" && !state) {
     return (
       <div className="flex min-h-screen w-full flex-col items-center justify-center gap-4 bg-background text-foreground">
         <span className="text-sm text-muted-foreground">세션을 불러오지 못했습니다.</span>
@@ -156,8 +173,20 @@ export default function GameDashboardPage() {
     );
   }
 
-  const candidates = recommendation.candidates;
+  const waitingRecommend = state?.myRole === "defense" && !noAvailablePitcher && !recommendation;
+  if (status === "loading" || !state || waitingRecommend) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-background text-foreground">
+        <span className="text-sm text-muted-foreground">세션을 준비하는 중...</span>
+      </div>
+    );
+  }
+
+  const candidates = recommendation?.candidates ?? [];
+  const isOffense = state.myRole === "offense";
+  const phaseBusy = phase.kind === "paResult" || phase.kind === "offense";
   const selected = candidates.find((c) => c.pitcherId === selectedId) ?? null;
+  const paCount = history.log.filter((entry) => entry.kind === "pa").length;
   const currentInningsLabel = `${state.inning}회${state.half === "top" ? "초" : "말"}~`;
 
   const blurClass =
@@ -189,13 +218,19 @@ export default function GameDashboardPage() {
 
         <ScoreHeader state={state} myTeamName={teamName(state.myTeam)} oppTeamName={teamName(state.opponentTeam)} />
 
-        {weTrace && (
+        {weTrace && config && (
           <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg bg-border md:grid-cols-[1.35fr_1fr]">
             <div className="bg-card p-[14px_20px_10px]">
               <WinProbabilityChart weTrace={weTrace} teamName={teamName(state.myTeam)} />
             </div>
             <div className="bg-card p-[14px_20px_10px]">
-              <LeverageChart weTrace={weTrace} currentLI={state.leverageIndex} liPercentile={recommendation.liPercentile} />
+              <LeverageChart
+                liSeries={history.liSeries}
+                bands={config.leverage.bands}
+                leagueAvg={config.leverage.leagueAvg}
+                currentLI={state.leverageIndex}
+                liPercentile={recommendation?.liPercentile ?? null}
+              />
             </div>
           </div>
         )}
@@ -217,7 +252,7 @@ export default function GameDashboardPage() {
                 <NextBattersCard batters={state.upcomingBatters} />
               </div>
               <div className="order-[53] md:order-none">
-                <UsageTimelineCard usageToday={usageToday} current={state.currentPitcher} currentInningsLabel={currentInningsLabel} />
+                <UsageTimelineCard usage={usageTimeline} usageToday={usageToday} current={state.currentPitcher} currentInningsLabel={currentInningsLabel} />
               </div>
             </div>
 
@@ -229,58 +264,87 @@ export default function GameDashboardPage() {
                 <OutcomePanel
                   result={lastResult}
                   simulating={simulating}
-                  paIndex={log.filter((entry) => entry.kind === "pa").length}
+                  paIndex={paCount}
+                  actualDecision={decidedActual}
                 />
               </div>
-              {lastResult && (
+              {lastResult && lastResult.source !== "actual" && (
                 <div className="order-[14] md:order-none">
                   <ProbabilityDistribution result={lastResult} />
                 </div>
               )}
               <div className="order-[60] md:order-none">
-                <AtBatLogCard entries={log} />
+                <AtBatLogCard entries={atBatLog} />
               </div>
             </div>
 
             <div className="contents md:flex md:flex-col md:gap-3">
-              <div className="order-[25] md:order-none">
-                <CurrentPitcherCard
-                  pitcher={state.currentPitcher}
-                  batter={state.currentBatter}
-                  badgeLabel={candidates.length === 0 ? "유지 강제" : "현재 · 유지"}
-                />
-              </div>
-              <div className="order-[30] md:order-none">
-                <ReliefRankingList
-                  candidates={candidates}
-                  selectedId={selected?.pitcherId ?? null}
-                  onSelect={(id) => setSelectedId((prev) => (prev === id ? null : id))}
-                  totalCount={recommendData.bullpenSummary.total}
-                  estimated={recommendData.bullpenSource === "estimated"}
-                />
-              </div>
-              <div className="order-[33] md:order-none">
-                <UsedPitchersChips usageToday={usageToday} usedTonight={usedTonight} />
-              </div>
-              <div className="order-[36] md:order-none">
-                <ActionBar
-                  canUndo={state.canUndo}
-                  onUndo={handleUndo}
-                  onStay={() => handleCommit(state.currentPitcher.pitcherId)}
-                  onSwitch={() => selected && handleCommit(Number(selected.pitcherId))}
-                  canSwitch={selected !== null}
-                  locked={phase.kind === "paResult" || phase.kind === "offense"}
-                  simulating={simulating}
-                />
-              </div>
+              {isOffense ? (
+                <div className="order-[25] md:order-none">
+                  <Card className="flex flex-col gap-3 p-4">
+                    <span className="text-sm text-muted-foreground">공격 이닝이 진행 대기 중입니다.</span>
+                    <div className="flex flex-wrap gap-2.5">
+                      <Button variant="muted" size="lg" disabled={!state.canUndo || simulating || phaseBusy} onClick={handleUndo} className="flex-1 whitespace-nowrap">
+                        되돌리기
+                      </Button>
+                      <Button variant="primary" size="lg" disabled={simulating || phaseBusy} onClick={() => void runAdvance()} className="flex-1 whitespace-nowrap">
+                        {simulating ? "진행 중..." : "공격 이닝 진행"}
+                      </Button>
+                    </div>
+                  </Card>
+                </div>
+              ) : (
+                <>
+                  <div className="order-[25] md:order-none">
+                    <CurrentPitcherCard
+                      pitcher={state.currentPitcher}
+                      batter={state.currentBatter}
+                      badgeLabel={candidates.length === 0 ? "유지 강제" : "현재 · 유지"}
+                      thisOuting={recommendData?.thisOuting}
+                    />
+                  </div>
+                  <div className="order-[30] md:order-none">
+                    <ReliefRankingList
+                      candidates={candidates}
+                      selectedId={selected?.pitcherId ?? null}
+                      onSelect={(id) => setSelectedId((prev) => (prev === id ? null : id))}
+                      usedPitchers={recommendation?.usedPitchers}
+                      totalCount={recommendData?.bullpenSummary.total ?? 0}
+                      estimated={recommendData?.bullpenSource === "estimated"}
+                      provisional={config?.model?.provisional ?? false}
+                      noAvailable={noAvailablePitcher}
+                    />
+                  </div>
+                  <div className="order-[33] md:order-none">
+                    <UsedPitchersChips usedPitchers={recommendation?.usedPitchers} usageToday={usageToday} usedTonight={usedTonight} />
+                  </div>
+                  <div className="order-[36] md:order-none">
+                    <ActionBar
+                      canUndo={state.canUndo}
+                      onUndo={handleUndo}
+                      onStay={() =>
+                        handleCommit({
+                          pitcherId: String(state.currentPitcher.pitcherId),
+                          pitcherName: state.currentPitcher.name,
+                          changed: false,
+                        })
+                      }
+                      onSwitch={() => selected && handleCommit({ pitcherId: selected.pitcherId, pitcherName: selected.name, changed: true })}
+                      canSwitch={selected !== null && !noAvailablePitcher}
+                      locked={phaseBusy}
+                      simulating={simulating}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
       </div>
     </div>
-    {import.meta.env.DEV && recommendation.source === "mock" && (
+    {import.meta.env.DEV && recommendData?.source && (
       <div className="pointer-events-none fixed bottom-2 right-2 z-40 rounded bg-chart-5 px-1.5 py-0.5 text-[10px] font-medium text-background">
-        MOCK
+        {recommendData.source}
       </div>
     )}
     {phase.kind === "offense" && (

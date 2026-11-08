@@ -1,4 +1,4 @@
-import type { BaseState, DecisionLogEntry, Half } from "@/types/api";
+import type { BaseState, DecisionLogEntry, Half, PitcherUsageSegment } from "@/types/api";
 
 function halfLabel(half: Half): "초" | "말" {
   return half === "top" ? "초" : "말";
@@ -40,21 +40,84 @@ export function inningHalfLabel(inning: number, half: Half): string {
   return `${inning}회${halfLabel(half)}`;
 }
 
-export function modelTop(d: DecisionLogEntry): { name: string; modelRank: number } | null {
-  return d.modelRanking[0] ?? null;
+export function modelTop(d: DecisionLogEntry): { name: string } | null {
+  return d.modelTop ?? d.modelRanking[0] ?? null;
 }
 
-/** The model's rank of a pitcher at that decision, or null if unknown. */
-export function modelRankOf(d: DecisionLogEntry, pitcherId: number | null): number | null {
-  if (pitcherId === null) return null;
-  return d.modelRanking.find((c) => c.pitcherId === pitcherId)?.modelRank ?? null;
-}
-
-/** "이름 (N위)" — the model's rank as a reference, never a verdict. */
+/** "이름 (N위)" — the model's rank as a reference, never a verdict.
+ * Name comes from the server row when present; rank is omitted when null
+ * (TODO(backend): model rank fields are null for now). */
 export function choiceWithRank(d: DecisionLogEntry, pitcherId: number | null): string | null {
   if (pitcherId === null) return null;
+  const isMine = pitcherId === d.chosenPitcherId;
+  const isActual = pitcherId === d.actualPitcherId;
   const found = d.modelRanking.find((c) => c.pitcherId === pitcherId);
-  return found ? `${found.name} (${found.modelRank}위)` : null;
+  const name = (isMine ? d.chosenName : isActual ? d.actualName : null) ?? found?.name ?? null;
+  if (!name) return null;
+  const rank = (isMine ? d.chosenModelRank : isActual ? d.actualModelRank : null) ?? found?.modelRank ?? null;
+  return rank === null ? name : `${name} (${rank}위)`;
+}
+
+/** Default view = decisions that actually changed the pitcher. `isChange` is
+ * undefined in mock mode → treated as a change (existing behaviour). */
+export function visibleDecisions(decisions: DecisionLogEntry[], showAll: boolean): DecisionLogEntry[] {
+  return showAll ? decisions : decisions.filter((d) => d.isChange !== false);
+}
+
+export function runsScoredLabel(runs: number | null): string {
+  return runs === null ? "—" : runs > 0 ? `${runs}실점` : "무실점";
+}
+
+/** Timeline spans in "out" units (3 = one defensive half-inning, one per inning).
+ *
+ * With PA positions (real backend): a segment inside one half gets a share of
+ * that half proportional to its PAs. `pa` is 0-based and `toPa` inclusive
+ * (samples/result.json: 김서현 0→1 and 와이스 2→2 in 7회말), so
+ *   width = (toPa - fromPa + 1) / halfTotal * 3,   halfTotal = lastSegment.toPa + 1.
+ * `halfTotal` is the `toPa + 1` of the last segment ending in that half. It is
+ * unknown when a pitcher continues past the half (the half's true end is never
+ * reported); then the entry point falls back to the middle of the half, and
+ * the previous segment is cut there ("반반").
+ *
+ * Without PA positions (mock): a segment covers whole innings and two
+ * segments meeting inside one inning split it in half. */
+export function timelineSpans(segments: PitcherUsageSegment[], startInning: number): { start: number; end: number }[] {
+  const halfKey = (inning: number, half: string) => `${inning}-${half}`;
+  const base = (inning: number) => Math.max(0, inning - startInning) * 3;
+
+  const totalPa = new Map<string, number>();
+  const openHalves = new Set<string>(); // a pitcher continues past this half
+  for (const s of segments) {
+    const toKey = halfKey(s.toInning, s.toHalf);
+    if (s.toPa !== undefined) totalPa.set(toKey, Math.max(totalPa.get(toKey) ?? 0, s.toPa + 1));
+    if (halfKey(s.fromInning, s.fromHalf) !== toKey) openHalves.add(halfKey(s.fromInning, s.fromHalf));
+  }
+
+  const spans = segments.map((s) => {
+    const coarse = { start: base(s.fromInning), end: base(s.toInning) + 3, midStart: true };
+    if (s.fromPa === undefined || s.toPa === undefined) return coarse;
+    const fromKey = halfKey(s.fromInning, s.fromHalf);
+    const toKey = halfKey(s.toInning, s.toHalf);
+    const toTotal = openHalves.has(toKey) ? undefined : totalPa.get(toKey);
+    const fromTotal = openHalves.has(fromKey) ? undefined : totalPa.get(fromKey);
+    const end = toTotal ? base(s.toInning) + (3 * (s.toPa + 1)) / toTotal : coarse.end;
+    if (s.fromPa === 0) return { start: coarse.start, end, midStart: false };
+    if (fromTotal) return { start: coarse.start + (3 * s.fromPa) / fromTotal, end, midStart: false };
+    return { start: coarse.start + 1.5, end, midStart: false }; // entered mid-half, half length unknown
+  });
+
+  for (let i = 1; i < spans.length; i++) {
+    const prev = spans[i - 1];
+    const cur = spans[i];
+    if (prev.end > cur.start + 1e-9) {
+      // `midStart` (coarse): cur starts on the inning boundary → meet in the middle.
+      // Otherwise cur's entry point is already placed → cut exactly there.
+      const cut = cur.midStart ? cur.start + 1.5 : cur.start;
+      prev.end = Math.max(prev.start, cut);
+      cur.start = cut;
+    }
+  }
+  return spans.map(({ start, end }) => ({ start, end }));
 }
 
 export function signed(n: number, digits = 2): string {

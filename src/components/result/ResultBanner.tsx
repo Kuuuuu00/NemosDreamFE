@@ -1,9 +1,18 @@
 import { TeamEmblem } from "@/components/common/TeamEmblem";
 import { Card } from "@/components/ui/card";
-import type { SimulationResult } from "@/types/api";
+import type { ResultKind, SimulationResult } from "@/types/api";
 
-function winLossLabel(win: boolean | null): string {
-  return win === null ? "무승부" : win ? "승리" : "패배";
+function winLossLabel(kind: ResultKind): string {
+  switch (kind) {
+    case "win":
+      return "승리";
+    case "loss":
+      return "패배";
+    case "tie":
+      return "무승부";
+    case "in_progress":
+      return "진행 중";
+  }
 }
 
 interface ResultBannerProps {
@@ -12,7 +21,7 @@ interface ResultBannerProps {
 }
 
 export function ResultBanner({ result, teamName }: ResultBannerProps) {
-  const { myFinalScore, actualFinalScore, myWin, actualWin, runsAllowedInRange, finalWeDiff, weDiffReferenceLabel, startInning } =
+  const { myFinalScore, actualFinalScore, result: myResult, actualResult, runsAllowedInRange, finalWeDiff, weDiffReferenceLabel, startInning } =
     result;
   const runDiff = runsAllowedInRange.mine - runsAllowedInRange.actual;
   const weDiffPct = +(finalWeDiff * 100).toFixed(1);
@@ -37,8 +46,8 @@ export function ResultBanner({ result, teamName }: ResultBannerProps) {
           <TeamEmblem code={result.oppTeam} name={teamName(result.oppTeam)} size={24} />
         </span>
         <div className="flex items-baseline gap-3.5">
-          <span className="text-[15px]" style={{ color: myWin === true ? "var(--primary)" : "var(--muted-foreground)" }}>
-            {winLossLabel(myWin)}
+          <span className="text-[15px]" style={{ color: myResult === "win" ? "var(--primary)" : "var(--muted-foreground)" }}>
+            {winLossLabel(myResult)}
           </span>
           <span className="text-[13px] text-muted-foreground">
             {startInning}~9회 실점 {runsAllowedInRange.mine}
@@ -67,7 +76,7 @@ export function ResultBanner({ result, teamName }: ResultBannerProps) {
           <TeamEmblem code={result.oppTeam} name={teamName(result.oppTeam)} size={24} />
         </span>
         <div className="flex items-baseline gap-3.5">
-          <span className="text-[15px] text-muted-foreground">{winLossLabel(actualWin)}</span>
+          <span className="text-[15px] text-muted-foreground">{winLossLabel(actualResult)}</span>
           <span className="text-[13px] text-muted-foreground">
             {startInning}~9회 실점 {runsAllowedInRange.actual}
           </span>

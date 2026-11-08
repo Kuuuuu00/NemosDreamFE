@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { DecisionComparison } from "@/components/result/DecisionComparison";
 import { DecisionLog } from "@/components/result/DecisionLog";
@@ -15,6 +15,7 @@ import { useSessionParams } from "@/context/SessionContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useSessionResult } from "@/hooks/useSessionResult";
 import { useTeams } from "@/hooks/useTeams";
+import { visibleDecisions } from "@/lib/resultDisplay";
 
 export default function ResultPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -22,7 +23,11 @@ export default function ResultPage() {
   const { theme, toggle } = useTheme();
   const { clear } = useSessionParams();
   const teams = useTeams();
-  const { result, weTrace, status, repeat, repeatOpen, repeatLoading, toggleRepeat } = useSessionResult(sessionId);
+  const { result, weTrace, status, error, repeat, repeatOpen, repeatLoading, toggleRepeat } = useSessionResult(sessionId);
+
+  // One filter/toggle state shared by DecisionComparison and DecisionLog.
+  const [showAllPas, setShowAllPas] = useState(false);
+  const decisions = useMemo(() => visibleDecisions(result?.decisions ?? [], showAllPas), [result, showAllPas]);
 
   const teamName = useMemo(() => {
     const map = new Map(teams.map((t) => [t.code, t.name]));
@@ -30,7 +35,9 @@ export default function ResultPage() {
   }, [teams]);
 
   if (!sessionId) return <Navigate to="/" replace />;
-  if (status === "error") return <Navigate to="/" replace />;
+  // Only an unrecoverable session (expired / metadata gone) leaves the page.
+  // TODO(3-3): other errors (recoverable) get an ErrorBanner + retry (`reload`) instead of the spinner below.
+  if (status === "error" && error?.code === "SESSION_EXPIRED") return <Navigate to="/" replace />;
 
   if (status !== "ready" || !result || !weTrace) {
     return (
@@ -68,10 +75,16 @@ export default function ResultPage() {
 
         <PitcherTimeline pitcherUsage={result.pitcherUsage} actualPitcherUsage={result.actualPitcherUsage} startInning={result.startInning} />
 
-        <DecisionComparison decisions={result.decisions} comparison={result.modelComparison} />
+        <DecisionComparison
+          decisions={decisions}
+          totalCount={result.decisions.length}
+          showAll={showAllPas}
+          onToggleAll={() => setShowAllPas((v) => !v)}
+          comparison={result.modelComparison}
+        />
 
         <div className="rounded-lg bg-card p-[18px_22px_18px]">
-          <DecisionLog decisions={result.decisions} />
+          <DecisionLog decisions={decisions} />
         </div>
 
         {repeatOpen && repeat && <RepeatSimulationPanel repeat={repeat} startInning={result.startInning} />}

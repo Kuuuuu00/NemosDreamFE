@@ -8,9 +8,7 @@ export type TransitionPhase =
   | { kind: "offense"; summary: HalfSummary & { inning: number; half: Half } }
   | { kind: "inning"; inning: number; half: Half };
 
-/** paResult effect entrance is 0.7s; the inning overlay follows the offense
- * overlay after a 0.1s gap. */
-const PA_RESULT_MS = 700;
+/** The inning overlay follows the offense overlay after a 0.1s gap. */
 const GAP_MS = 100;
 
 /** Phase changes come only from these callbacks + their timers — never from
@@ -43,15 +41,22 @@ export function useHalfTransition() {
     [clear, set],
   );
 
-  /** A defense half just ended: paResult → offense → gap → next inning. */
-  const playHalfEnd = useCallback(
-    (summary: HalfSummary & { inning: number; half: Half }, next: { inning: number; half: Half }) => {
+  /** A defense half just ended and `advance-half` is in flight: hold the
+   * PA-result effect (and the action lock) until the summary arrives. */
+  const holdPaResult = useCallback(() => {
+    clear();
+    nextRef.current = null;
+    set({ kind: "paResult" });
+  }, [clear, set]);
+
+  /** `advance-half` answered: offense summary overlay → gap → next inning overlay. */
+  const showOffense = useCallback(
+    (summary: HalfSummary & { inning: number; half: Half }, next: { inning: number; half: Half } | null) => {
       clear();
       nextRef.current = next;
-      set({ kind: "paResult" });
-      later(() => set({ kind: "offense", summary }), PA_RESULT_MS);
+      set({ kind: "offense", summary });
     },
-    [clear, later, set],
+    [clear, set],
   );
 
   /** Offense overlay finished or was skipped (idempotent). */
@@ -71,5 +76,5 @@ export function useHalfTransition() {
     set({ kind: "idle" });
   }, [clear, set]);
 
-  return { phase, startInning, playHalfEnd, finishOffense, finishInning, cancel };
+  return { phase, startInning, holdPaResult, showOffense, finishOffense, finishInning, cancel };
 }

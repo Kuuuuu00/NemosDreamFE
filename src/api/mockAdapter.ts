@@ -77,13 +77,24 @@ export const mockApi: ApiSurface = {
     return mock.undoLast(sessionId);
   },
   getWeTrace: (sessionId) => mock.getWeTrace(sessionId),
-  getResult: (sessionId) => mock.getResult(sessionId),
+  async getResult(sessionId) {
+    const r = await mock.getResult(sessionId);
+    // The mock's decision rows carry no `isChange`; derive it (a row is a change
+    // when the chosen pitcher differs from the previous row's, the first row vs.
+    // the pitcher the session started with) so the "교체 행만" toggle works here too.
+    let prev = r.pitcherUsage[0]?.pitcherId;
+    const decisions = r.decisions.map((d) => {
+      const isChange = prev === undefined || d.chosenPitcherId !== prev;
+      prev = d.chosenPitcherId;
+      return { ...d, isChange };
+    });
+    return { ...r, decisions };
+  },
   getRepeatSimulation: (sessionId, n) => mock.getRepeatSimulation(sessionId, n),
 };
 
 /** Mock-only data with no real endpoint (replaced by real data in 3-2). */
 export const mockExtras = {
-  getInningOptions: mock.getInningOptions,
   getUsageToday: mock.getUsageToday,
   getUsedTonight: mock.getUsedTonight,
 };

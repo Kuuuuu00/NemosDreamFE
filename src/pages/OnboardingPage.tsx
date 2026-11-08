@@ -9,7 +9,6 @@ import { TeamGrid } from "@/components/onboarding/TeamGrid";
 import { useSessionParams } from "@/context/SessionContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useGames } from "@/hooks/useGames";
-import { useInningOptions } from "@/hooks/useInningOptions";
 import { useTeams } from "@/hooks/useTeams";
 
 type StepN = 1 | 2 | 3 | 4;
@@ -44,15 +43,10 @@ export default function OnboardingPage() {
     return () => ro.disconnect();
   }, []);
 
-  const { games } = useGames(myTeam, oppTeam);
-  const inningOptions = useInningOptions(myTeam, oppTeam, gameId);
+  const { games, loading: gamesLoading } = useGames(myTeam, oppTeam);
 
   const opponentTeams = useMemo(() => teams.filter((t) => t.code !== myTeam), [teams, myTeam]);
   const selectedGame = useMemo(() => games.find((g) => g.gameId === gameId) ?? null, [games, gameId]);
-  const selectedInning = useMemo(
-    () => inningOptions.find((i) => i.n === startInning) ?? null,
-    [inningOptions, startInning],
-  );
 
   const myTeamName = teams.find((t) => t.code === myTeam)?.name ?? "";
   const oppTeamName = teams.find((t) => t.code === oppTeam)?.name ?? "";
@@ -147,7 +141,7 @@ export default function OnboardingPage() {
             onReopen={s3.onReopen}
             summary={selectedGame ? `${selectedGame.date} · ${selectedGame.away} ${selectedGame.finalScore.away} : ${selectedGame.finalScore.home} ${selectedGame.home}` : ""}
           >
-            <GamePicker games={games} selectedGameId={gameId} onSelect={pickGame} />
+            <GamePicker games={games} loading={gamesLoading} selectedGameId={gameId} onSelect={pickGame} />
           </StepCard>
         )}
 
@@ -156,9 +150,9 @@ export default function OnboardingPage() {
             label="시작 이닝"
             open={s4.open}
             onReopen={s4.onReopen}
-            summary={selectedInning ? `${selectedInning.label} · LI ${selectedInning.li}` : ""}
+            summary={startInning ? `${startInning}회` : ""}
           >
-            <InningPicker options={inningOptions} selected={startInning} onSelect={pickInning} />
+            <InningPicker game={selectedGame} selected={startInning} onSelect={pickInning} />
           </StepCard>
         )}
 

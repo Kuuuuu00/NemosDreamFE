@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { handMatchup, MATCHUP_LABEL } from "@/lib/handMatchup";
-import type { Batter, Pitcher } from "@/types/api";
+import type { Batter, Pitcher, ThisOuting } from "@/types/api";
 
 const THROWS_LABEL: Record<Pitcher["throws"], string> = { L: "좌투", R: "우투", U: "언더" };
 const BATTER_LABEL: Record<Batter["hitType"], string> = { L: "좌타", R: "우타", S: "스위치" };
@@ -16,13 +16,20 @@ interface CurrentPitcherCardProps {
   pitcher: Pitcher;
   batter: Batter;
   badgeLabel: string;
+  /** Real backend: `recommend.current_pitcher.this_outing`. Absent in mock → falls back to `pitcher.workload`. */
+  thisOuting?: ThisOuting | null;
 }
 
 /** Replacement-decision facts only — the model has no score for the pitcher
  * on the mound (it ranks relievers for a decided change), so none is shown. */
-export function CurrentPitcherCard({ pitcher, batter, badgeLabel }: CurrentPitcherCardProps) {
+export function CurrentPitcherCard({ pitcher, batter, badgeLabel, thisOuting }: CurrentPitcherCardProps) {
   const w = pitcher.workload;
-  const matchup = handMatchup(pitcher.throws, batter.hitType);
+  // Server value first; the client-side hand read is only a fallback (mock / null).
+  const matchup = thisOuting?.matchupVsBatter ?? handMatchup(pitcher.throws, batter.hitType);
+  const pitches = thisOuting ? thisOuting.pitches : w.estPitchCount;
+  const outs = thisOuting ? thisOuting.outs : w.outsRecorded;
+  const hits = thisOuting ? thisOuting.hitsAllowed : w.hitsAllowed;
+  const walks = thisOuting ? thisOuting.walks : w.walksAllowed;
   return (
     <Card className="flex p-[14px_18px_16px_0]">
       <div className="mr-[15px] w-[3px] rounded-sm bg-primary" />
@@ -34,9 +41,9 @@ export function CurrentPitcherCard({ pitcher, batter, badgeLabel }: CurrentPitch
           </span>
         </div>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-          <Fact label="이번 등판 투구수" value={w.estPitchCount === null ? "—" : `${w.estPitchCount}구`} />
-          <Fact label="이닝" value={w.outsRecorded === null ? "—" : inningsLabel(w.outsRecorded)} />
-          <Fact label="피안타 / 볼넷" value={`${w.hitsAllowed ?? "—"} / ${w.walksAllowed ?? "—"}`} />
+          <Fact label="이번 등판 투구수" value={pitches === null || pitches === undefined ? "—" : `${pitches}구`} />
+          <Fact label="이닝" value={outs === null || outs === undefined ? "—" : inningsLabel(outs)} />
+          <Fact label="피안타 / 볼넷" value={`${hits ?? "—"} / ${walks ?? "—"}`} />
           <Fact
             label="현재 타자 매치업"
             value={`${THROWS_LABEL[pitcher.throws]} vs ${BATTER_LABEL[batter.hitType]} · ${MATCHUP_LABEL[matchup]}`}

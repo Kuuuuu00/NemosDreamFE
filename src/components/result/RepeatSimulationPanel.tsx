@@ -26,7 +26,7 @@ export function RepeatSimulationPanel({ repeat, startInning }: RepeatSimulationP
         <span className="text-sm">반복 시뮬레이션 · {repeat.n}회</span>
         <span className="text-xs text-muted-foreground">
           중앙값 {repeat.median}실점 · 실제 경기({repeat.actualGameRuns}실점)보다 좋을 확률{" "}
-          {(repeat.probBetterThanActual * 100).toFixed(0)}%{repeat.probSameAsActual !== undefined && ` · 같을 확률 ${(repeat.probSameAsActual * 100).toFixed(0)}%`}
+          {(repeat.probBetterThanActual * 100).toFixed(0)}%{repeat.winRate !== undefined && ` · 승률 ${(repeat.winRate * 100).toFixed(0)}%`}{repeat.meanRunsAllowed !== undefined && ` · 평균 ${repeat.meanRunsAllowed.toFixed(1)}실점`}
         </span>
       </div>
       <div className="mb-4 text-[11px] text-muted-foreground">

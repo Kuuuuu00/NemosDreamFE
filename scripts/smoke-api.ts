@@ -92,6 +92,17 @@ check("repeat: histogram map → 0..6 + 7+, counts preserved", rep.histogram.len
 const game = toGame({ game_id: "20250902HHKT02025", date: "2025-09-02", away: "HH", home: "KT", final_score: { away: 6, home: 9 }, available_innings: [5, 7], high_leverage_innings: [7] });
 check("games: date normalized to YYYY.MM.DD for the picker", game.date === "2025.09.02", game.date);
 
+// ── PitcherTimeline: PA-proportional split (pa is 0-based, `to` inclusive) ───
+const { timelineSpans } = await import("../src/lib/resultDisplay");
+const near = (a: number, b: number) => Math.abs(a - b) < 1e-9;
+const mine = timelineSpans(res.pitcherUsage, 7); // 김서현 0→1, 와이스 2→2 in 7회말 (3 PAs)
+check("timeline: mid-inning change split by PAs (2 of 3, then 1 of 3)", near(mine[0].start, 0) && near(mine[0].end, 2) && near(mine[1].start, 2) && near(mine[1].end, 3), mine);
+const real = timelineSpans(res.actualPitcherUsage, 7); // one pitcher per inning, 0→3 each
+check("timeline: whole-inning segments fill 3 units each", real.every((sp, i) => near(sp.start, i * 3) && near(sp.end, i * 3 + 3)), real);
+const seg = (fromInning: number, fromPa: number, toInning: number, toPa: number) => ({ ...res.pitcherUsage[0], fromInning, toInning, fromPa, toPa });
+const crossing = timelineSpans([seg(7, 0, 7, 0), seg(7, 1, 8, 2)], 7); // 2nd pitcher continues into the 8th: 7th's length unknown
+check("timeline: pitcher continuing past a half falls back to mid-half cut", near(crossing[0].end, 1.5) && near(crossing[1].start, 1.5), crossing);
+
 // ── pitcherId: number conversion only in endpoints.simulatePa ────────────────
 console.log("\n# pitcherId handling");
 sent.length = 0;

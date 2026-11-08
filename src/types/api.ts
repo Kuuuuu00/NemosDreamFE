@@ -320,16 +320,23 @@ export interface PitcherUsageSegment {
   fromHalf: Half;
   toInning: number;
   toHalf: Half;
+  /** PA position inside `fromHalf` / `toHalf` (real backend only; undefined in
+   * mock). Live samples show: **0-based** (the half's first PA is 0) and `toPa`
+   * is **inclusive** (a pitcher who faced PAs 0 and 1 is `0→1`; a one-PA outing
+   * is `2→2`). So a segment inside one half covers `toPa - fromPa + 1` PAs. */
+  fromPa?: number;
+  toPa?: number;
   /** Real observed PA count for this segment. Reference only — never used
    * for the timeline's width (see `fromOut`/`toOut`), since for
    * `actualPitcherUsage` there is no real PA count to measure. */
   paCount: number;
-  /** Cumulative out count (session start = 0, 3 outs = one half-inning)
+  /** Mock only (the real backend gives `fromPa`/`toPa`; see `timelineSpans`).
+   * Cumulative out count (session start = 0, 3 outs = one half-inning)
    * spanned by this segment — the shared unit both timeline rows use for
    * width, since PA count differs between my playthrough and the
    * procedurally-generated actual-manager path and can't be compared. */
-  fromOut: number;
-  toOut: number;
+  fromOut?: number;
+  toOut?: number;
   deltaWeSum: number;
   /** LI at the moment this pitcher entered. `null` when there's no real
    * game-state basis for it (procedurally-generated actual-manager segments
@@ -383,14 +390,10 @@ export interface SimulationResult {
   startInning: number;
   startHalf: Half;
   myFinalScore: { mine: number; opp: number };
-  /** Distinguishes a tie from an in-progress game (`myWin: boolean|null` couldn't). */
+  /** Distinguishes a tie from an in-progress game. */
   result: ResultKind;
-  /** @deprecated TODO(3-2): use `result`. Derived: win→true, loss→false, else null. Removed once result screens migrate. */
-  myWin: boolean | null;
   actualFinalScore: { mine: number; opp: number };
   actualResult: ResultKind;
-  /** @deprecated TODO(3-2): use `actualResult`. */
-  actualWin: boolean | null;
   runsAllowedInRange: { mine: number; actual: number };
   finalWeDiff: number;
   weDiffReferenceLabel: string;
@@ -430,8 +433,6 @@ export interface RepeatResult {
   p90WE: number;
   /** P(내 실점 < 실제 실점) — strict. */
   probBetterThanActual: number;
-  /** Mock-only. The real backend gives `winRate` / `betterThanActualRate` instead. */
-  probSameAsActual?: number;
   winRate?: number;
   meanRunsAllowed?: number;
   elapsedMs?: number;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, isAbortError } from "@/api";
+import { api, isAbortError, isApiError, type ApiRequestError } from "@/api";
 import { useInFlight } from "@/hooks/useInFlight";
 import type { RepeatResult, SimulationResult, WeTraceResponse } from "@/types/api";
 
@@ -14,6 +14,10 @@ export function useSessionResult(sessionId: string | undefined) {
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [weTrace, setWeTrace] = useState<WeTraceResponse | null>(null);
   const [status, setStatus] = useState<Status>("idle");
+  // Load error. Only SESSION_EXPIRED should leave the page; the rest is exposed for the 3-3 banner.
+  const [error, setError] = useState<ApiRequestError | null>(null);
+  const [repeatError, setRepeatError] = useState<ApiRequestError | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [repeat, setRepeat] = useState<RepeatResult | null>(null);
   const [repeatOpen, setRepeatOpen] = useState(false);
   // One lock for repeat: a second click while the first is running is ignored.
@@ -26,6 +30,7 @@ export function useSessionResult(sessionId: string | undefined) {
     }
     const ctrl = new AbortController();
     setStatus("loading");
+    setError(null);
     Promise.all([
       api.getResult(sessionId, { signal: ctrl.signal }),
       // weTrace is its own endpoint, fetched alongside the result.
@@ -41,10 +46,15 @@ export function useSessionResult(sessionId: string | undefined) {
         setStatus("ready");
       })
       .catch((e) => {
-        if (!isAbortError(e) && !ctrl.signal.aborted) setStatus("error"); // TODO(3-3): ErrorBanner / SESSION_EXPIRED
+        if (isAbortError(e) || ctrl.signal.aborted) return;
+        setError(isApiError(e) ? e : null);
+        setStatus("error");
       });
     return () => ctrl.abort();
-  }, [sessionId]);
+  }, [sessionId, reloadKey]);
+
+  /** Re-run the initial load (for the 3-3 retry button). */
+  const reload = useCallback(() => setReloadKey((k) => k + 1), []);
 
   const toggleRepeat = useCallback(async () => {
     if (repeatOpen) {
@@ -56,7 +66,9 @@ export function useSessionResult(sessionId: string | undefined) {
       return;
     }
     if (!sessionId) return;
+    setRepeatError(null);
     await run(async () => {
+      try {
       const startedAt = performance.now();
       const r = await api.getRepeatSimulation(sessionId, 100, { myRunsAllowed: result?.runsAllowedInRange.mine });
       const elapsedMs = performance.now() - startedAt;
@@ -65,8 +77,12 @@ export function useSessionResult(sessionId: string | undefined) {
       }
       setRepeat(r);
       setRepeatOpen(true);
+      } catch (e) {
+        // Same n returns the same result (measured), so a successful repeat stays cached; a failure is retried by clicking again.
+        if (!isAbortError(e) && isApiError(e)) setRepeatError(e);
+      }
     });
   }, [sessionId, repeat, repeatOpen, result, run]);
 
-  return { result, weTrace, status, repeat, repeatOpen, repeatLoading, toggleRepeat };
+  return { result, weTrace, status, error, reload, repeat, repeatOpen, repeatLoading, repeatError, toggleRepeat };
 }

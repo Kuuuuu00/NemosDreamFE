@@ -945,10 +945,8 @@ export function buildResult(sessionId: string): SimulationResult {
     startHalf: myDefensiveHalf,
     myFinalScore,
     result: myWin === null ? "tie" : myWin ? "win" : "loss",
-    myWin,
     actualFinalScore,
     actualResult: actualWin === null ? "tie" : actualWin ? "win" : "loss",
-    actualWin,
     runsAllowedInRange: { mine: runsAllowedMine, actual: runsAllowedActual },
     finalWeDiff,
     weDiffReferenceLabel,
@@ -1062,7 +1060,6 @@ export function repeatSimulation(sessionId: string, n: number): RepeatResult {
   const actualGameRuns = s.historicalOppPerInn.slice(s.startInning - 1).reduce((a, b) => a + b, 0);
   const myActualRuns = s.liveOppRuns.reduce<number>((a, v) => a + (v ?? 0), 0);
   const better = runsAllowedTrials.filter((r) => r < actualGameRuns).length;
-  const same = runsAllowedTrials.filter((r) => r === actualGameRuns).length;
 
   const histogram: RepeatHistogramBucket[] = [0, 1, 2, 3, 4, 5, 6].map((b) => ({
     label: String(b),
@@ -1078,7 +1075,6 @@ export function repeatSimulation(sessionId: string, n: number): RepeatResult {
     p50WE: quantile(finalWETrials, 0.5),
     p90WE: quantile(finalWETrials, 0.9),
     probBetterThanActual: +(better / n).toFixed(2),
-    probSameAsActual: +(same / n).toFixed(2),
     n,
     myActualRuns,
     actualGameRuns,

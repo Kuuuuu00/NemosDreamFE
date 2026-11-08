@@ -22,6 +22,8 @@ export type LogEntry =
       half: Half;
       pitcherId: number;
       pitcherName: string;
+      /** Batter faced (the at-bat log shows it). */
+      batter: string;
       /** The pitcher on the mound was changed by this decision. */
       changed: boolean;
       result: PAResult;

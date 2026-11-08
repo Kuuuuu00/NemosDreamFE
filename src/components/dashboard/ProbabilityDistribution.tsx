@@ -3,7 +3,7 @@ import { OUTCOME_DISPLAY_ORDER, OUTCOME_LABELS, outcomeTone } from "@/lib/outcom
 import type { PAResult } from "@/types/api";
 
 export function ProbabilityDistribution({ result }: { result: PAResult }) {
-  const maxProb = Math.max(...OUTCOME_DISPLAY_ORDER.map((code) => result.probs[code]));
+  const maxProb = Math.max(...OUTCOME_DISPLAY_ORDER.map((code) => result.probs[code] ?? 0)) || 1;
 
   return (
     <Card className="p-[16px_20px_14px]">
@@ -15,7 +15,7 @@ export function ProbabilityDistribution({ result }: { result: PAResult }) {
        * an overflow. */}
       <div className="flex h-[150px] flex-nowrap items-end gap-1.5 sm:gap-2">
         {OUTCOME_DISPLAY_ORDER.map((code) => {
-          const p = result.probs[code];
+          const p = result.probs[code] ?? 0;
           const hit = code === result.outcome;
           const accent = outcomeTone(result.outcome) === "good" ? "var(--primary)" : "var(--destructive)";
           // Minimum visible bar height so a small-probability outcome's

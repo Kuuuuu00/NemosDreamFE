@@ -1,3 +1,4 @@
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ResultActionBarProps {
@@ -19,7 +20,13 @@ export function ResultActionBar({ onNewGame, onRepeat, repeatLabel, repeatLoadin
           새 경기
         </Button>
         <Button variant="primary" size="lg" className="min-w-[196px]" onClick={onRepeat} disabled={repeatLoading}>
-          {repeatLoading ? "계산 중..." : repeatLabel}
+          {repeatLoading ? (
+            <>
+              <Loader2 className="size-4 animate-spin" aria-hidden /> 계산 중...
+            </>
+          ) : (
+            repeatLabel
+          )}
         </Button>
       </div>
     </div>

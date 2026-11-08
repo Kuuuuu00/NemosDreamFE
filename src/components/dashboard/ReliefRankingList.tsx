@@ -2,15 +2,21 @@ import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { MATCHUP_LABEL } from "@/lib/handMatchup";
 import { cn } from "@/lib/utils";
-import type { ReliefCandidate } from "@/types/recommendation";
+import type { ReliefCandidate, UsedPitcher } from "@/types/recommendation";
 
 interface ReliefRankingListProps {
   /** Ascending by modelRank — rendered in exactly this order. */
   candidates: ReliefCandidate[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** Real backend only: already-pitched relievers, shown as a gray group below (no score, no bar). */
+  usedPitchers?: UsedPitcher[];
   totalCount: number;
   estimated: boolean;
+  /** `config.model.provisional` → "임시 점수" badge. */
+  provisional?: boolean;
+  /** `recommend` answered NO_AVAILABLE_PITCHER (409): nothing to choose, only "stay". */
+  noAvailable?: boolean;
 }
 
 const HAND: Record<string, string> = { L: "좌투", R: "우투", U: "언더" };
@@ -18,22 +24,33 @@ const DASH = "—";
 
 function supportLine(c: ReliefCandidate): string {
   const era = c.era !== undefined && c.era !== null ? `ERA ${c.era.toFixed(2)}` : `ERA ${DASH}`;
+  // null/undefined percentile = unknown → dash, never "상위 100%".
   const quality =
-    c.qualityPercentile !== undefined && c.qualityPercentile !== null ? `quality 상위 ${Math.max(1, 100 - c.qualityPercentile)}%` : `quality ${DASH}`;
+    c.qualityPercentile != null ? `quality 상위 ${Math.max(1, 100 - c.qualityPercentile)}%` : `quality ${DASH}`;
   const matchup = c.matchupVsBatter ? `매치업 ${MATCHUP_LABEL[c.matchupVsBatter]}` : `매치업 ${DASH}`;
-  const hasFatigue = c.consecutiveDays !== undefined || c.pitchesLast3d !== undefined;
+  const hasFatigue = c.consecutiveDays != null || c.pitchesLast3d != null;
   const fatigue = hasFatigue
     ? `연투 ${c.consecutiveDays ?? DASH}일, 최근 3일 ${c.pitchesLast3d ?? DASH}구`
     : `피로 ${DASH}`;
   return [era, quality, matchup, fatigue].join(" · ");
 }
 
+/** The raw model score is a normalized WPA/PA estimate, NOT a win-probability change (spec §3-6) — never show it as %p. */
 function scoreTooltip(score: number): string {
-  const pct = score * 100;
-  return `예상 성과: 타석당 ${pct >= 0 ? "+" : "-"}${Math.abs(pct).toFixed(2)}%p (과거 데이터 기반 추정)`;
+  return `모델 점수 ${score.toFixed(4)} (투수 관점 타석당 기대 성과 추정 · 실제 승률 변화 아님)`;
 }
 
-export function ReliefRankingList({ candidates, selectedId, onSelect, totalCount, estimated }: ReliefRankingListProps) {
+export function ReliefRankingList({
+  candidates,
+  selectedId,
+  onSelect,
+  usedPitchers = [],
+  totalCount,
+  estimated,
+  provisional = false,
+  noAvailable = false,
+}: ReliefRankingListProps) {
+  // Min-max over the scored candidates only (differences between them are tiny; ties exist).
   const scores = candidates.map((c) => c.modelScore);
   const top = Math.max(...scores);
   const min = Math.min(...scores);
@@ -44,6 +61,11 @@ export function ReliefRankingList({ candidates, selectedId, onSelect, totalCount
         <span className="flex flex-wrap items-center gap-2 text-[13px]">
           교체 시 추천 순위
           <span className="text-[11px] text-muted-foreground">모델 적합도순</span>
+          {provisional && (
+            <span className="whitespace-nowrap rounded border border-muted-foreground px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              임시 점수
+            </span>
+          )}
           {estimated && (
             <span className="whitespace-nowrap rounded border border-chart-5 px-1.5 py-0.5 text-[10px] text-chart-5">
               추정 명단
@@ -66,7 +88,7 @@ export function ReliefRankingList({ candidates, selectedId, onSelect, totalCount
 
       {candidates.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-md bg-muted p-[30px_16px] text-center">
-          <span className="text-sm">가용 불펜 0명</span>
+          <span className="text-sm">{noAvailable ? "교체 가능한 투수 없음" : "가용 불펜 0명"}</span>
           <span className="text-[11px] leading-[1.6] text-muted-foreground">
             등판 가능한 투수가 없습니다. 이 타석은 교체 없이 진행됩니다.
           </span>
@@ -78,7 +100,6 @@ export function ReliefRankingList({ candidates, selectedId, onSelect, totalCount
               const isTop = c.modelRank === 1;
               const selected = selectedId === c.pitcherId;
               const pct = top === min ? 100 : ((c.modelScore - min) / (top - min)) * 100;
-              const gap = (top - c.modelScore) * 100;
               return (
                 <motion.div
                   key={c.pitcherId}
@@ -118,7 +139,7 @@ export function ReliefRankingList({ candidates, selectedId, onSelect, totalCount
                   </span>
                   <span className="flex w-[116px] shrink-0 flex-col items-end gap-[5px]">
                     <span className="whitespace-nowrap text-[11px] text-muted-foreground">
-                      {isTop ? "모델 1위" : `1위 대비 −${gap.toFixed(2)}%p`}
+                      {isTop ? "모델 1위" : `상대 적합도 ${Math.round(pct)}`}
                     </span>
                     <span className="h-1.5 w-full rounded-full bg-muted">
                       <span
@@ -131,6 +152,21 @@ export function ReliefRankingList({ candidates, selectedId, onSelect, totalCount
               );
             })}
           </div>
+        </div>
+      )}
+
+      {usedPitchers.length > 0 && (
+        <div className="mt-3 flex flex-col gap-1 border-t border-border pt-2.5">
+          <span className="text-[11px] text-muted-foreground">등판 불가</span>
+          {usedPitchers.map((u) => (
+            <div key={u.pitcherId} className="flex items-center justify-between gap-2 px-2 py-1 text-disabled">
+              <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap text-[13px]">
+                <span className="truncate">{u.name}</span>
+                <span className="text-[11px]">{u.throws ? HAND[u.throws] : DASH}</span>
+              </span>
+              <span className="whitespace-nowrap text-[11px]">{u.unavailableReason ?? DASH}</span>
+            </div>
+          ))}
         </div>
       )}
     </Card>

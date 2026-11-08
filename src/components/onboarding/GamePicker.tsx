@@ -5,15 +5,22 @@ import type { GameListItem } from "@/types/api";
 
 const MONTHS = [3, 4, 5, 6, 7, 8, 9];
 
+/** Accepts "YYYY.MM.DD", "YYYY-MM-DD" (or "/"); returns null when unparseable. */
+function monthOf(date: string): number | null {
+  const m = /^\d{4}\D(\d{1,2})\D/.exec(date.trim());
+  return m ? Number(m[1]) : null;
+}
+
 interface GamePickerProps {
   games: GameListItem[];
+  loading?: boolean;
   selectedGameId: string | null;
   onSelect: (gameId: string) => void;
 }
 
-export function GamePicker({ games, selectedGameId, onSelect }: GamePickerProps) {
+export function GamePicker({ games, loading = false, selectedGameId, onSelect }: GamePickerProps) {
   const [month, setMonth] = useState(0);
-  const filtered = month ? games.filter((g) => +g.date.split(".")[1] === month) : games;
+  const filtered = month ? games.filter((g) => monthOf(g.date) === month) : games;
 
   return (
     <div>
@@ -62,7 +69,7 @@ export function GamePicker({ games, selectedGameId, onSelect }: GamePickerProps)
         })}
         {filtered.length === 0 && (
           <div className="p-6 text-center text-xs text-muted-foreground">
-            해당 월에 진행된 경기가 없습니다.
+            {loading ? "경기 목록을 불러오는 중…" : games.length === 0 ? "맞대결 경기가 없습니다." : "해당 월에 진행된 경기가 없습니다."}
           </div>
         )}
       </div>

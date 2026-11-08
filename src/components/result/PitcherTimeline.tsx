@@ -1,12 +1,15 @@
 import { Card } from "@/components/ui/card";
-import { signed } from "@/lib/resultDisplay";
+import { signed, timelineSpans } from "@/lib/resultDisplay";
 import type { PitcherUsageSegment } from "@/types/api";
 
-function Bars({ segments, accent }: { segments: PitcherUsageSegment[]; accent: boolean }) {
+function Bars({ segments, accent, startInning }: { segments: PitcherUsageSegment[]; accent: boolean; startInning: number }) {
+  const spans = timelineSpans(segments, startInning);
   return (
     <div className="flex gap-1">
       {segments.map((seg, i) => (
-        <div key={i} className="flex min-w-0 flex-col gap-1.5" style={{ flex: Math.max(1, seg.toOut - seg.fromOut) }}>
+        <div key={i} className="flex min-w-0 flex-col gap-1.5" style={{ flex: Math.max(0.5, spans[i].end - spans[i].start) }}
+          title={`${seg.name} · 추정 ${seg.pitchesEst ?? "—"}구 · 등판 LI ${seg.enteredLI === null ? "—" : seg.enteredLI.toFixed(2)}`}
+        >
           <div
             className="flex h-[38px] items-center justify-center overflow-hidden rounded-md bg-muted px-1.5"
             style={{ border: `1px solid ${accent ? "var(--primary)" : "var(--border)"}` }}
@@ -37,8 +40,8 @@ interface PitcherTimelineProps {
  * where either row's segment boundaries fall. */
 export function PitcherTimeline({ pitcherUsage, actualPitcherUsage, startInning }: PitcherTimelineProps) {
   const totalOut = Math.max(
-    pitcherUsage[pitcherUsage.length - 1]?.toOut ?? 0,
-    actualPitcherUsage[actualPitcherUsage.length - 1]?.toOut ?? 0,
+    timelineSpans(pitcherUsage, startInning).at(-1)?.end ?? 0,
+    timelineSpans(actualPitcherUsage, startInning).at(-1)?.end ?? 0,
     1,
   );
   const inningCount = Math.max(1, Math.ceil(totalOut / 3));
@@ -78,14 +81,14 @@ export function PitcherTimeline({ pitcherUsage, actualPitcherUsage, startInning 
             내 운용
           </span>
           <div style={{ gridColumn: 2, gridRow: 2 }}>
-            <Bars segments={pitcherUsage} accent />
+            <Bars segments={pitcherUsage} accent startInning={startInning} />
           </div>
 
           <span style={{ gridColumn: 1, gridRow: 3 }} className="pt-3 text-xs text-muted-foreground">
             실제 감독
           </span>
           <div style={{ gridColumn: 2, gridRow: 3 }}>
-            <Bars segments={actualPitcherUsage} accent={false} />
+            <Bars segments={actualPitcherUsage} accent={false} startInning={startInning} />
           </div>
         </div>
       </div>

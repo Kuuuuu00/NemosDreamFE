@@ -15,9 +15,13 @@ export function WinProbabilityChart({ weTrace, teamName }: WinProbabilityChartPr
   const data = useMemo(() => {
     const simByKey = new Map<string, number>();
     for (const p of weTrace.simulated) simByKey.set(keyOf(p), p.we); // later entries (same half) overwrite — end-of-half value wins
-    return weTrace.actual.map((p) => {
+    // Before diverging `simulated` is empty (normal). After it, the first
+    // simulated point is joined to the actual value just before the branch.
+    const firstSimIdx = weTrace.actual.findIndex((p) => simByKey.has(keyOf(p)));
+    return weTrace.actual.map((p, i) => {
       const actual = +(p.we * 100).toFixed(1);
-      const simulated = simByKey.has(keyOf(p)) ? +((simByKey.get(keyOf(p)) as number) * 100).toFixed(1) : undefined;
+      let simulated = simByKey.has(keyOf(p)) ? +((simByKey.get(keyOf(p)) as number) * 100).toFixed(1) : undefined;
+      if (simulated === undefined && firstSimIdx > 0 && i === firstSimIdx - 1) simulated = actual;
       return {
         key: keyOf(p),
         label: `${p.inning}회${p.half === "top" ? "초" : "말"}`,
