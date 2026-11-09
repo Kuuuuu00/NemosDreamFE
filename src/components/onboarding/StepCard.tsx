@@ -7,7 +7,7 @@ interface StepCardProps {
   label: string;
   open: boolean;
   summary?: ReactNode;
-  /** Replaces the placeholder circle in the collapsed row (e.g. a team emblem). */
+  /** Optional leading icon in the collapsed row (e.g. a team emblem). Rows without one show no placeholder. */
   icon?: ReactNode;
   onReopen: () => void;
   children: ReactNode;
@@ -38,11 +38,12 @@ export function StepCard({ label, open, summary, icon, onReopen, children, class
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }}
-            className="flex w-full shrink-0 items-center justify-between gap-3 whitespace-nowrap text-left"
+            className="flex min-h-[26px] w-full shrink-0 items-center justify-between gap-3 whitespace-nowrap text-left"
           >
             <div className="flex min-w-0 items-center gap-3">
               <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
-              {icon ?? <span className="h-[26px] w-[26px] shrink-0 rounded-full bg-muted" />}
+              {/* Only rows that have an icon (team emblem) reserve space for it; game / inning rows render none. */}
+              {icon}
               <span className="truncate text-[15px] font-medium">{summary}</span>
               <span className="shrink-0 text-[13px] text-primary">✓</span>
             </div>
