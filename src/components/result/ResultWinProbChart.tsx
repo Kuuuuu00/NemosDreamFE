@@ -75,7 +75,6 @@ export function ResultWinProbChart({ weTrace, teamName, pitcherUsage }: ResultWi
                 x={divergeLabel}
                 stroke="var(--chart-5)"
                 strokeDasharray="2 3"
-                label={{ value: "여기서 갈라졌습니다", position: "insideTopLeft", fontSize: 11, fill: "var(--chart-5)" }}
               />
             )}
             {changeMarks.map((c, i) => (
