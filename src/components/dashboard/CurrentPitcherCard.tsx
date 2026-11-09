@@ -41,7 +41,7 @@ export function CurrentPitcherCard({ pitcher, batter, badgeLabel, thisOuting }: 
           </span>
         </div>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-          <Fact label="이번 등판 투구수" value={pitches === null || pitches === undefined ? "—" : `${pitches}구`} />
+          <Fact label="이번 등판 누적" value={pitches === null || pitches === undefined ? "—" : `${pitches}구`} />
           <Fact label="이닝" value={outs === null || outs === undefined ? "—" : inningsLabel(outs)} />
           <Fact label="피안타 / 볼넷" value={`${hits ?? "—"} / ${walks ?? "—"}`} />
           <Fact
