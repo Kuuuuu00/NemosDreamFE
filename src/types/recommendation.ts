@@ -18,6 +18,8 @@ export interface ReliefCandidate {
   era?: number | null;
   /** Server's season WHIP, passed through (no derived stats). */
   whip?: number | null;
+  /** Games pitched this season (`season.g`). 0 = no season record, so `qualityPercentile` is null for a known reason. */
+  seasonGames?: number;
   /** 0–100, relievers' quality percentile (higher = better). */
   /** null = the backend has no percentile for this pitcher (never render it as 0 / "상위 100%"). */
   qualityPercentile?: number | null;

@@ -17,6 +17,7 @@ function toCandidate(c: RawCandidatePitcher, index: number): ReliefCandidate | n
     modelRank: c.model_rank ?? index + 1,
     era: c.season.era,
     whip: c.season.whip,
+    seasonGames: c.season.g,
     qualityPercentile: c.quality_percentile,
     matchupVsBatter: c.matchup_vs_batter,
     consecutiveDays: c.workload.consecutive_days,

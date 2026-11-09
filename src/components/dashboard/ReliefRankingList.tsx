@@ -24,9 +24,14 @@ const DASH = "—";
 
 function supportLine(c: ReliefCandidate): string {
   const whip = c.whip !== undefined && c.whip !== null ? `WHIP ${c.whip.toFixed(2)}` : `WHIP ${DASH}`;
-  // null/undefined percentile = unknown → dash, never "상위 100%".
+  // No games this season (`season.g === 0`): the server has no percentile for a known reason → say so.
+  // Otherwise null/undefined percentile = unknown → dash, never "상위 100%".
   const quality =
-    c.qualityPercentile != null ? `quality 상위 ${Math.max(1, 100 - c.qualityPercentile)}%` : `quality ${DASH}`;
+    c.seasonGames === 0
+      ? "시즌 기록 없음"
+      : c.qualityPercentile != null
+        ? `quality 상위 ${Math.max(1, 100 - c.qualityPercentile)}%`
+        : `quality ${DASH}`;
   const matchup = c.matchupVsBatter ? `매치업 ${MATCHUP_LABEL[c.matchupVsBatter]}` : `매치업 ${DASH}`;
   const hasFatigue = c.consecutiveDays != null || c.pitchesLast3d != null;
   const fatigue = hasFatigue

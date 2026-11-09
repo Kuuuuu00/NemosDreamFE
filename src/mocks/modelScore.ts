@@ -49,6 +49,7 @@ export function computeRanking(
       modelRank: i + 1,
       era: p.season.era,
       whip: p.season.whip,
+      seasonGames: p.season.g,
       qualityPercentile: qualityPercentileOf(p.qualityP ?? 0),
       matchupVsBatter: handMatchup(p.throws, state.currentBatter.hitType),
       ...(hasFatigue
