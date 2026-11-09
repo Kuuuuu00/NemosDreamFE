@@ -165,7 +165,7 @@ VITE_USE_MOCK=true npm run dev
 
 | 환경 변수         | 개발(`.env.development`) | 운영(`.env.production`)    | 설명                            |
 | ----------------- | -------------------------- | ---------------------------- | ------------------------------- |
-| `VITE_API_BASE` | 빈 값 (Vite proxy 경유)    | `https://nemosdream.cloud` | API 서버 주소                   |
+| `VITE_API_BASE` | 빈 값 (Vite proxy 경유)    | `https://api.nemosdream.cloud` | API 서버 주소                   |
 | `VITE_USE_MOCK` | `false`                  | 지정하지 않음(= 실서버)      | `true`면 `src/mocks`를 사용 |
 
 - 개발 서버는 Vite proxy(`/api`, `/health`, `/static`)로 CORS를 우회한다. 서버가 `http://localhost:5173` Origin만 허용해서, proxy가 `Origin` 헤더를 제거한다.

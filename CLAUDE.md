@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Frontend for **K-Moneyball**, a KBO bullpen-decision tool. The user plays a "replay mode": load a real 2025 game, take over their team's defensive half-innings from a chosen inning onward, and choose which reliever to bring in for each plate appearance, guided by a Contextual Bandit model's "if you replace, who comes in" ranking. Product background and the original contract (written by the frontend track for the two backend tracks) live in `K-Moneyball 프론트엔드 → 백엔드 요구사항 명세( U 폐기 버젼).md` (Korean). The **integration source of truth is `docs/API_연동명세_nemosdream.md`** (real-server rules, types, call flow, differences from the original spec); when the two conflict, the integration spec wins. Priority for field shapes: live samples (`docs/integration/samples/`) > integration spec > `docs/api-docs.json` (OpenAPI). Read these before making non-trivial changes to data shapes, session flow, or calculation ownership; they are the source of truth, not this file.
 
-The app talks to the real backend (`https://nemosdream.cloud`) through `src/api`. An in-memory mock (`src/mocks/`, built to the same contract) is kept as a presentation fallback and is selected with `VITE_USE_MOCK=true`.
+The app talks to the real backend (`https://api.nemosdream.cloud`) through `src/api`. An in-memory mock (`src/mocks/`, built to the same contract) is kept as a presentation fallback and is selected with `VITE_USE_MOCK=true`.
 
 ## Commands
 
@@ -18,7 +18,7 @@ npm run preview   # preview production build
 npx tsx --tsconfig tsconfig.app.json scripts/smoke-api.ts [--offline]   # adapters vs. recorded samples (+ one live simulation session unless --offline)
 ```
 
-Environment: `.env.development` has `VITE_API_BASE=` (empty: requests go through the Vite proxy, which strips `Origin` because the server only allows `http://localhost:5173`) and `VITE_USE_MOCK=false`; `.env.production` calls `https://nemosdream.cloud` directly (needs the deploy domain on the server's CORS allow-list).
+Environment: `.env.development` has `VITE_API_BASE=` (empty: requests go through the Vite proxy, which strips `Origin` because the server only allows `http://localhost:5173`) and `VITE_USE_MOCK=false`; `.env.production` calls `https://api.nemosdream.cloud` directly (needs the deploy domain on the server's CORS allow-list).
 
 There is no test runner configured. Type-check with `npm run build` (or `tsc -b` directly) and lint with `npm run lint` after changes.
 

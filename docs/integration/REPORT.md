@@ -37,7 +37,7 @@
 | 2 | `DecisionRow`에 `out_count` / `base_state` 추가 | 결정 비교 "상황" 열을 이닝·초말만 표시. 근거: 명세 v0.3의 결정 비교 표 "상황" 열(아웃·주자 포함)과 다름 | 중 |
 | 3 | `advance-half` `summary.pa_log[]`에 `runs_scored` / `delta_we` 추가 | `delta_we`는 `we_trace[i+1] − we_trace[i]`(실측: 길이 = 타석 수+1, `my_team` 관점)로 계산. `runs_scored`는 타석별 복원 불가라 반이닝 합계만 표시 | 중 |
 | 4 | `GET /api/v1/sessions/{id}` (현재 state 조회) 추가 | 마지막 state를 history와 함께 sessionStorage 한 키에 저장해 복원. 추가 근거: 변경 요청(simulate-pa/advance-half/undo)이 응답 없이 타임아웃 났을 때 서버가 이미 적용했는지 알 수 없어, 재시도하면 한 타석이 중복 진행될 수 있다(멱등 키 또는 상태 조회가 있으면 해결) | 중 |
-| 5 | 배포 도메인을 CORS 허용 Origin에 추가 | 개발은 Vite proxy로 회피. 실측: `Origin: http://localhost:5173`만 200, 그 외 Origin은 preflight 403 | 높음(배포 전) |
+| 5 | **API 서버(`https://api.nemosdream.cloud`)의 CORS 허용 Origin에 배포 도메인 추가**: `https://www.nemosdream.cloud`, `https://nemosdream.vercel.app` | 개발은 Vite proxy로 회피(proxy가 `Origin` 헤더를 제거). 운영 빌드는 브라우저가 API 서버를 직접 호출하므로 허용 목록이 필요하다. 실측(2026-11-09, `api.nemosdream.cloud`, preflight `OPTIONS /api/v1/teams`): `http://localhost:5173` 200, `https://nemosdream.vercel.app` 200, **`https://www.nemosdream.cloud` 403**, `http://172.25.20.15:5173` 403 — 즉 `www.nemosdream.cloud`는 아직 허용되지 않았다. 허용 시 `Access-Control-Allow-Origin`에 요청 Origin이 그대로 돌아온다(`Vary: Origin`) | 높음(배포 전) |
 
 ### 추가 제안 (우회 불필요, 확인·정정 요청)
 

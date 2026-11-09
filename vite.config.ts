@@ -2,7 +2,7 @@ import path from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-const API_TARGET = "https://nemosdream.cloud";
+const API_TARGET = "https://api.nemosdream.cloud";
 
 // The backend only allows `Origin: http://localhost:5173` (live finding: any
 // other origin — e.g. the WSL IP we browse from — gets a 403 preflight). The

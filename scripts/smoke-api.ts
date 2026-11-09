@@ -3,7 +3,7 @@
  *   npx tsx --tsconfig tsconfig.app.json scripts/smoke-api.ts            # offline samples + live
  *   npx tsx --tsconfig tsconfig.app.json scripts/smoke-api.ts --offline  # samples only (no network)
  *
- * Live part creates ONE simulation session on https://nemosdream.cloud and
+ * Live part creates ONE simulation session on https://api.nemosdream.cloud and
  * plays it (the only writes this script is allowed to make).
  */
 import { readFileSync } from "node:fs";
@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const OFFLINE = process.argv.includes("--offline");
-const BASE = "https://nemosdream.cloud";
+const BASE = "https://api.nemosdream.cloud";
 const SAMPLES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../docs/integration/samples");
 
 // ── Node shims: sessionStorage + absolute fetch + request recording ──────────
@@ -165,7 +165,7 @@ if (OFFLINE) {
 }
 
 // ── Live: one simulation session on the real server ─────────────────────────
-console.log("\n# live (https://nemosdream.cloud) — one simulation session");
+console.log("\n# live (https://api.nemosdream.cloud) — one simulation session");
 check("health", (await realApi.health()) === true);
 const cfg = await realApi.getConfig();
 check("config: bands + model.provisional", cfg.leverage.bands.length > 0 && typeof cfg.model?.provisional === "boolean");

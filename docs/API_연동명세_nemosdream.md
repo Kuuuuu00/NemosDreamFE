@@ -1,7 +1,7 @@
 # 네모의 꿈 — 백엔드 API 연동 명세
 
 **대상**: 프론트엔드 연동 작업 (Claude Code 입력용)
-**서버**: `https://nemosdream.cloud`
+**서버**: `https://api.nemosdream.cloud`
 **원본**: OpenAPI 3.1 스펙 `api-docs.json` (`/v3/api-docs`, 이 문서와 함께 저장소에 둘 것)
 **기준 문서**: `K-Moneyball 프론트엔드 → 백엔드 요구사항 명세 v0.3` (U 폐기 버전)
 
@@ -100,13 +100,13 @@ OpenAPI 스펙의 응답 스키마에는 `required`와 `nullable` 표시가 **�
 
 ```bash
 # .env.development
-VITE_API_BASE=https://nemosdream.cloud
+VITE_API_BASE=https://api.nemosdream.cloud
 VITE_USE_MOCK=false
 ```
 
 - **CORS 확인이 첫 작업이다.** OpenAPI 스펙에는 CORS 정보가 없다.
-  브라우저에서 `localhost:5173` → `nemosdream.cloud` 호출이 막히면 두 가지 중 하나를 쓴다.
-  - 개발: `vite.config.ts`에 `server.proxy: { '/api': 'https://nemosdream.cloud', '/health': ... }` + `changeOrigin: true`
+  브라우저에서 `localhost:5173` → `api.nemosdream.cloud` 호출이 막히면 두 가지 중 하나를 쓴다.
+  - 개발: `vite.config.ts`에 `server.proxy: { '/api': 'https://api.nemosdream.cloud', '/health': ... }` + `changeOrigin: true`
   - 배포: 백엔드에 프론트 도메인 CORS 허용 요청
 - 목업과 실제 API를 `VITE_USE_MOCK`으로 전환할 수 있게 유지한다. 발표 중 서버 장애 대비.
 
