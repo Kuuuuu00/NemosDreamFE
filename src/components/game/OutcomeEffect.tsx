@@ -1,4 +1,4 @@
-import { memo, type CSSProperties } from "react";
+import { memo, useEffect, useRef, type CSSProperties } from "react";
 import type { PAOutcomeCode } from "@/types/api";
 
 interface OutcomeEffectProps {
@@ -6,6 +6,13 @@ interface OutcomeEffectProps {
   description: string;
   runsScored: number;
   paIndex: number;
+  /**
+   * Called once every CSS animation of this effect has finished (read from the
+   * browser via `getAnimations()`, so no duration is hard-coded here or by the
+   * caller). With reduced motion / no animations it fires right away.
+   * Not part of the memo comparison: pass a stable callback.
+   */
+  onComplete?: (paIndex: number) => void;
 }
 
 type OutcomeTone = "red" | "green";
@@ -41,7 +48,23 @@ function outcomeFontSize(sizeRem: number): string {
   return `clamp(${minRem}rem, ${preferredVw}vw, ${sizeRem}rem)`;
 }
 
-function OutcomeEffectImpl({ outcome, description, runsScored, paIndex }: OutcomeEffectProps) {
+function OutcomeEffectImpl({ outcome, description, runsScored, paIndex, onComplete }: OutcomeEffectProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const completeRef = useRef(onComplete);
+  completeRef.current = onComplete;
+
+  useEffect(() => {
+    if (!outcome) return;
+    let cancelled = false;
+    const animations = rootRef.current?.getAnimations({ subtree: true }) ?? [];
+    void Promise.allSettled(animations.map((a) => a.finished)).then(() => {
+      if (!cancelled) completeRef.current?.(paIndex);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [outcome, paIndex]);
+
   if (!outcome) {
     return (
       <div className="flex min-h-[220px] flex-col items-center justify-center gap-2 text-center">
@@ -54,7 +77,7 @@ function OutcomeEffectImpl({ outcome, description, runsScored, paIndex }: Outcom
   const classes = TONE_CLASSES[meta.tone];
 
   return (
-    <div key={paIndex} className="flex min-h-[220px] flex-col items-center justify-center gap-2.5 py-6">
+    <div key={paIndex} ref={rootRef} className="flex min-h-[220px] flex-col items-center justify-center gap-2.5 py-6">
       <div className={classes.stack} style={{ "--outcome-font-size": outcomeFontSize(meta.sizeRem) } as CSSProperties}>
         <span className={classes.text}>{meta.label}</span>
         <span aria-hidden="true" className={classes.glow}>

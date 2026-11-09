@@ -7,7 +7,19 @@ import type { Batter, GameState, Pitcher } from "@/types/api";
 const HAND_LABEL: Record<string, string> = { L: "좌투", R: "우투", U: "언더" };
 const BATTER_HAND_LABEL: Record<string, string> = { L: "좌타", R: "우타", S: "스위치" };
 
-export function MatchupPanel({ pitcher, batter, state }: { pitcher: Pitcher; batter: Batter; state: GameState }) {
+export function MatchupPanel({
+  pitcher,
+  batter,
+  state,
+  outCountOverride,
+}: {
+  pitcher: Pitcher;
+  batter: Batter;
+  state: GameState;
+  /** Display only: lights the out dots (e.g. 3) while the final out's result effect plays. No base-running / score is computed. */
+  outCountOverride?: number;
+}) {
+  const outs = outCountOverride ?? state.outCount;
   const halfLabel = state.half === "top" ? "초" : "말";
   return (
     <Card className="p-[28px_24px_22px]">
@@ -33,8 +45,8 @@ export function MatchupPanel({ pitcher, batter, state }: { pitcher: Pitcher; bat
 
       <Diamond
         baseState={state.baseState}
-        outCount={state.outCount}
-        caption={`${state.inning}회${halfLabel} · ${state.outCount}아웃 · ${baseStateLabel(state.baseState)}`}
+        outCount={outs}
+        caption={`${state.inning}회${halfLabel} · ${outs}아웃 · ${baseStateLabel(state.baseState)}`}
       />
     </Card>
   );

@@ -9,12 +9,15 @@ export function OutcomePanel({
   simulating,
   paIndex,
   actualDecision = null,
+  onEffectComplete,
 }: {
   result: PAResult | null;
   simulating: boolean;
   paIndex: number;
   /** The real manager's choice for this PA — revealed only after the user decided; null hides it. */
   actualDecision?: ActualDecision | null;
+  /** Fired when the result effect for `paIndex` has finished playing. */
+  onEffectComplete?: (paIndex: number) => void;
 }) {
   return (
     <Card className="overflow-hidden p-0">
@@ -39,6 +42,7 @@ export function OutcomePanel({
                 description={result?.description ?? ""}
                 runsScored={result?.runsScored ?? 0}
                 paIndex={paIndex}
+                onComplete={onEffectComplete}
               />
             </motion.div>
           )}

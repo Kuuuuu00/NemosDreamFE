@@ -22,10 +22,8 @@ export type { SessionParams };
 
 type Status = "idle" | "loading" | "ready" | "error";
 
-/** `advance-half` is held at least this long so the half-inning transition
- * keeps its pacing even when the server answers instantly (spec §3-8). */
-const MIN_ADVANCE_MS = 2000;
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+/** Outcomes that record an out (used only to light the out dots while a half-ending result is shown). */
+const OUT_OUTCOMES: ReadonlySet<string> = new Set(["SO", "GO", "FO", "GDP"]);
 
 /** My pitching usage vs. the real manager's, since the session started (`GET /result`). */
 export interface UsageTimeline {
@@ -87,6 +85,14 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<ApiRequestError | null>(null);
   const [lastResult, setLastResult] = useState<PAResult | null>(null);
+  /** True only while the simulate-pa request itself is running (drives the "타석 진행 중…" placeholder). */
+  const [paInFlight, setPaInFlight] = useState(false);
+  /**
+   * Non-null while the screen deliberately keeps showing the previous state
+   * after a half-ending / game-ending PA, so its result effect plays on the
+   * state it was decided on. `threeOuts`: display-only hint to light 3 out dots.
+   */
+  const [viewHold, setViewHold] = useState<{ threeOuts: boolean } | null>(null);
   /** The real manager's choice for the PA the user just decided — only set AFTER the decision. */
   const [decidedActual, setDecidedActual] = useState<ActualDecision | null>(null);
   // One lock for every action that mutates the session (simulate-pa,
@@ -108,9 +114,19 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
   const resultGuard = useRef(createLatest());
   const recommendSeq = useRef(0);
 
+  // `stateRef` is always the server-confirmed state (all logic reads it). `state`
+  // (what renders) normally follows it, except while `viewGate` is up.
+  const viewGate = useRef(false);
   const applyState = useCallback((s: GameState) => {
     stateRef.current = s;
-    setState(s);
+    if (!viewGate.current) setState(s);
+  }, []);
+
+  /** Show the confirmed state now (end of the result-effect hold). */
+  const releaseView = useCallback(() => {
+    viewGate.current = false;
+    setViewHold(null);
+    if (stateRef.current) setState(stateRef.current);
   }, []);
 
   /**
@@ -217,6 +233,8 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
     const resGuard = resultGuard.current;
 
     const begin = async () => {
+      viewGate.current = false;
+      setViewHold(null);
       setStatus("loading");
       setError(null);
       setLastResult(null);
@@ -269,6 +287,7 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
       const out = await run(async () => {
         setError(null);
         retryRef.current = null;
+        setPaInFlight(true);
         try {
           const { result } = await api.simulatePa(id, args.pitcherId);
           // pitcherId as a number is log metadata only; the request used the string.
@@ -279,17 +298,32 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
             changed: args.changed,
             prevState: prev,
           });
-          applyState(result.nextState); // server state replaces ours wholesale
-          persist(id, result.nextState);
+          const next = result.nextState;
+          // A PA that ends the half (→ offense) or the game: `next` is already the
+          // next half (0 outs, empty bases) — don't show it until the result effect
+          // has played. Logic uses the confirmed state; only the render is held.
+          const ending = next.myRole === "offense" || next.isGameOver;
+          if (ending) {
+            viewGate.current = true;
+            setViewHold({
+              threeOuts: OUT_OUTCOMES.has(result.outcome) && !next.isGameOver && (next.inning !== prev.inning || next.half !== prev.half),
+            });
+          }
+          applyState(next); // server state replaces ours wholesale
+          persist(id, next);
           setLastResult(result);
           setDecidedActual(actual);
-          await refreshAll(id, result.nextState);
-          return { result, prevState: prev };
+          // Half-ending: play the effect right away (the refresh below keeps running under the lock).
+          if (ending) setPaInFlight(false);
+          await refreshAll(id, next);
+          return { result, prevState: prev, ending };
         } catch (e) {
           // NOTE: no state-read API exists (REPORT #4), so after a lost response we can't tell whether the server applied the PA.
           retryRef.current = () => void actionsRef.current?.simulate(args);
           fail(e);
           return null;
+        } finally {
+          setPaInFlight(false);
         }
       });
       return out ?? null;
@@ -297,35 +331,55 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
     [applyState, fail, persist, refreshAll, run],
   );
 
-  /** `POST /advance-half` (held ≥ 2s). Only valid in an offense state. */
-  const advance = useCallback(async (): Promise<AdvanceOutcome | null> => {
+  /**
+   * `POST /advance-half`, split in two so the page can overlap the request with
+   * the previous PA's result effect:
+   *  - `prepareAdvance()` sends the request NOW (nothing is applied or recorded);
+   *  - `commit()` waits for the response, then applies the state, records the
+   *    log / LI point and refreshes. It resolves right after applying (before
+   *    the refresh) so the overlay isn't delayed; the lock covers the refresh.
+   * A failed request is reported by `commit()` (resolves null + `error`).
+   * Only valid in an offense state.
+   */
+  const prepareAdvance = useCallback((): { commit: () => Promise<AdvanceOutcome | null> } | null => {
     const id = sessionIdRef.current;
     const off = stateRef.current;
     if (!id || !off || off.myRole !== "offense" || off.isGameOver) return null;
-    const out = await run(async () => {
-      setError(null);
-      retryRef.current = null;
-      try {
-        const [res] = await Promise.all([api.advanceHalf(id), sleep(MIN_ADVANCE_MS)]);
-        const outcome: AdvanceOutcome = { summary: res.summary, offenseInning: off.inning, offenseHalf: off.half, state: res.state };
-        historyRef.current.recordAdvanceHalf({
-          summary: res.summary,
-          offenseInning: off.inning,
-          offenseHalf: off.half,
-          state: res.state,
-        });
-        applyState(res.state);
-        persist(id, res.state);
-        await refreshAll(id, res.state);
-        return outcome;
-      } catch (e) {
-        retryRef.current = () => void actionsRef.current?.advance();
-        fail(e);
-        return null;
-      }
-    });
-    return out ?? null;
+    const req = api.advanceHalf(id);
+    req.catch(() => {}); // surfaced through commit()
+    const commit = () =>
+      new Promise<AdvanceOutcome | null>((resolve) => {
+        void run(async () => {
+          setError(null);
+          retryRef.current = null;
+          try {
+            const res = await req;
+            const outcome: AdvanceOutcome = { summary: res.summary, offenseInning: off.inning, offenseHalf: off.half, state: res.state };
+            historyRef.current.recordAdvanceHalf({
+              summary: res.summary,
+              offenseInning: off.inning,
+              offenseHalf: off.half,
+              state: res.state,
+            });
+            applyState(res.state);
+            persist(id, res.state);
+            resolve(outcome);
+            await refreshAll(id, res.state);
+          } catch (e) {
+            retryRef.current = () => void actionsRef.current?.advance();
+            fail(e);
+            resolve(null);
+          }
+        }).then(() => resolve(null)); // lock held (action in flight) → never ran; no-op after a real resolve
+      });
+    return { commit };
   }, [applyState, fail, persist, refreshAll, run]);
+
+  /** Request + apply in one go (offense-wait card, banner retry). */
+  const advance = useCallback(async (): Promise<AdvanceOutcome | null> => {
+    const prepared = prepareAdvance();
+    return prepared ? prepared.commit() : null;
+  }, [prepareAdvance]);
 
   const undo = useCallback(async () => {
     const id = sessionIdRef.current;
@@ -391,6 +445,12 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
     },
     /** True while simulate-pa / advance-half / undo is in flight: disable those buttons. */
     simulating: inFlight,
+    /** True only while the simulate-pa request itself is running. */
+    paInFlight,
+    /** Non-null while the previous state is deliberately kept on screen (result effect playing); see `releaseView`. */
+    viewHold,
+    releaseView,
+    prepareAdvance,
     lastResult,
     decidedActual,
     history,

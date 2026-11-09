@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { ActionBar } from "@/components/dashboard/ActionBar";
 import { AtBatLogCard, type AtBatLogEntry } from "@/components/dashboard/AtBatLogCard";
@@ -28,7 +28,10 @@ import { useConfig } from "@/hooks/useConfig";
 import { useExpiredRedirect } from "@/hooks/useExpiredRedirect";
 import { useTeams } from "@/hooks/useTeams";
 import { OUTCOME_LABELS } from "@/lib/outcomeDisplay";
+import { EFFECT_SAFETY_MS, MIN_OFFENSE_OVERLAY_MS, holdAfterEffectMs } from "@/lib/transitionTiming";
 import type { AdvanceHalfSummary } from "@/types/api";
+
+const sleep = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
 /** My-team WE swing of an offense half. TODO(backend): server `pa_log[].delta_we` (REPORT #3). The adapter already prefers
  * the server's per-PA value and otherwise derives it from `weTrace`, so summing `deltaWe` follows the server field once it exists. */
@@ -58,11 +61,14 @@ export default function GameDashboardPage() {
     weTrace,
     status,
     simulating,
+    paInFlight,
+    viewHold,
+    releaseView,
+    prepareAdvance,
     lastResult,
     decidedActual,
     history,
     simulate,
-    advance,
     undo,
     error,
     retry,
@@ -76,6 +82,42 @@ export default function GameDashboardPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { phase, startInning, holdPaResult, showOffense, finishOffense, finishInning, cancel } = useHalfTransition();
   const startedFor = useRef<string | null>(null);
+
+  // ① The result effect reports when its animations have finished; the half-ending
+  // sequence waits for that signal instead of a timer tuned to the effect's length.
+  const effectDoneIdx = useRef(-1);
+  const effectWaiter = useRef<{ idx: number; resolve: () => void } | null>(null);
+  const handleEffectComplete = useCallback((idx: number) => {
+    effectDoneIdx.current = Math.max(effectDoneIdx.current, idx);
+    const w = effectWaiter.current;
+    if (w && idx >= w.idx) {
+      effectWaiter.current = null;
+      w.resolve();
+    }
+  }, []);
+  const waitForEffect = useCallback((idx: number): Promise<void> => {
+    if (effectDoneIdx.current >= idx) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      // Safety net only (e.g. a throttled background tab never finishes animations).
+      const timer = window.setTimeout(() => {
+        effectWaiter.current = null;
+        resolve();
+      }, EFFECT_SAFETY_MS);
+      effectWaiter.current = {
+        idx,
+        resolve: () => {
+          window.clearTimeout(timer);
+          resolve();
+        },
+      };
+    });
+  }, []);
+  useEffect(() => {
+    effectDoneIdx.current = -1; // new session → PA indexes restart at 1
+  }, [sessionId]);
+
+  // The offense overlay can't be click-skipped before MIN_OFFENSE_OVERLAY_MS after it appears.
+  const offenseShownAt = useRef(0);
 
   useEffect(() => {
     setSelectedId(null);
@@ -125,14 +167,21 @@ export default function GameDashboardPage() {
 
   if (!params) return <Navigate to="/" replace />;
 
-  /** advance-half (held ≥ 2s by the hook) → offense summary overlay → next inning overlay. */
-  async function runAdvance() {
+  /**
+   * ③ advance-half response → show the confirmed next state together with the offense
+   * overlay (the overlay covers the switch) → next-inning overlay. `prepared` is a request
+   * already sent during the result effect; without one (offense-wait card) it is sent now.
+   * A failed request releases the screen to the offense-wait card with the error banner.
+   */
+  async function runAdvance(prepared: ReturnType<typeof prepareAdvance> = prepareAdvance()) {
     holdPaResult();
-    const out = await advance();
+    const out = prepared ? await prepared.commit() : null;
+    releaseView(); // confirmed state replaces the held one (under the overlay when there is one)
     if (!out || out.state.isGameOver) {
-      cancel(); // failure: state stays on the offense start → "공격 진행" button retries
+      cancel(); // failure: state stays on the offense start → "공격 이닝 진행" button retries; game over: effect above navigates
       return;
     }
+    offenseShownAt.current = Date.now();
     showOffense(
       {
         inning: out.offenseInning,
@@ -155,15 +204,25 @@ export default function GameDashboardPage() {
     if (!state || state.myRole !== "defense") return;
     if (phase.kind === "paResult" || phase.kind === "offense") return;
     setSelectedId(null);
+    // The paIndex the result panel will use for this PA (its effect reports completion with it).
+    const paIdx = history.log.filter((e) => e.kind === "pa").length + 1;
     const out = await simulate(args);
-    if (!out) return;
-    const next = out.result.nextState;
-    if (next.isGameOver) return; // effect above navigates to /result
-    if (next.myRole === "offense") await runAdvance();
+    if (!out || !out.ending) return; // ordinary PA: nothing more to sequence
+    // Half- or game-ending PA. The screen still shows the state it was decided on.
+    holdPaResult(); // keep the action lock through ①–③
+    const prepared = out.result.nextState.isGameOver ? null : prepareAdvance(); // request now, applied in ③
+    await waitForEffect(paIdx); // ① result effect
+    await sleep(holdAfterEffectMs()); // ② stay readable for a moment
+    if (!prepared) {
+      releaseView(); // game over → effect above navigates to /result
+      cancel();
+      return;
+    }
+    await runAdvance(prepared); // ③ offense overlay + next half
   }
 
   function handleUndo() {
-    if (simulating) return; // an action is in flight: the lock would drop this undo, so don't touch the overlay either
+    if (simulating || phase.kind === "paResult" || phase.kind === "offense") return; // locked: the action lock would drop it, so don't touch the overlay either
     cancel();
     setSelectedId(null);
     void undo();
@@ -189,6 +248,8 @@ export default function GameDashboardPage() {
     );
   }
 
+  // An advance-half failure is reported once ③ is reached (not while the result effect still plays).
+  const shownError = phase.kind === "paResult" ? null : error;
   const waitingRecommend = state?.myRole === "defense" && !noAvailablePitcher && !recommendation;
   if (status === "loading" || !state || waitingRecommend) {
     return (
@@ -232,7 +293,7 @@ export default function GameDashboardPage() {
           </div>
         </div>
 
-        {error && error.code !== "SESSION_EXPIRED" && <ErrorBanner error={error} onRetry={retry} onDismiss={clearError} />}
+        {shownError && shownError.code !== "SESSION_EXPIRED" && <ErrorBanner error={shownError} onRetry={retry} onDismiss={clearError} />}
 
         <ScoreHeader state={state} myTeamName={teamName(state.myTeam)} oppTeamName={teamName(state.opponentTeam)} />
 
@@ -276,14 +337,15 @@ export default function GameDashboardPage() {
 
             <div className="contents md:flex md:flex-col md:gap-3">
               <div className="order-[10] md:order-none">
-                <MatchupPanel pitcher={state.currentPitcher} batter={state.currentBatter} state={state} />
+                <MatchupPanel pitcher={state.currentPitcher} batter={state.currentBatter} state={state} outCountOverride={viewHold?.threeOuts ? 3 : undefined} />
               </div>
               <div className="order-[12] md:order-none">
                 <OutcomePanel
                   result={lastResult}
-                  simulating={simulating}
+                  simulating={paInFlight}
                   paIndex={paCount}
                   actualDecision={decidedActual}
+                  onEffectComplete={handleEffectComplete}
                 />
               </div>
               {lastResult && lastResult.source !== "actual" && (
@@ -371,7 +433,11 @@ export default function GameDashboardPage() {
         half={phase.summary.half}
         myTeamName={teamName(state.myTeam)}
         summary={phase.summary}
-        onComplete={finishOffense}
+        onComplete={() => {
+          const wait = MIN_OFFENSE_OVERLAY_MS - (Date.now() - offenseShownAt.current);
+          if (wait > 0) window.setTimeout(finishOffense, wait);
+          else finishOffense();
+        }}
       />
     )}
     {phase.kind === "inning" && (
