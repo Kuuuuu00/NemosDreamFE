@@ -8,8 +8,8 @@ export function PitcherStatCard({ pitcher }: { pitcher: Pitcher }) {
       <div className="mb-2 text-[11px] text-muted-foreground">현재 투수</div>
       <div className="mb-3 text-lg font-medium">{pitcher.name}</div>
       <div className="grid grid-cols-3 gap-2">
-        <Stat label="ERA" value={pitcher.season.era === null ? "—" : pitcher.season.era.toFixed(2)} />
         <Stat label="WHIP" value={pitcher.season.whip === null ? "—" : pitcher.season.whip.toFixed(2)} />
+        <Stat label="삼진" value={typeof pitcher.season.so === "number" ? String(pitcher.season.so) : "—"} />
         <Stat label="IP" value={pitcher.season.ip.toFixed(1)} />
       </div>
       <Separator className="my-3.5" />

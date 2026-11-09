@@ -23,7 +23,7 @@ const HAND: Record<string, string> = { L: "좌투", R: "우투", U: "언더" };
 const DASH = "—";
 
 function supportLine(c: ReliefCandidate): string {
-  const era = c.era !== undefined && c.era !== null ? `ERA ${c.era.toFixed(2)}` : `ERA ${DASH}`;
+  const whip = c.whip !== undefined && c.whip !== null ? `WHIP ${c.whip.toFixed(2)}` : `WHIP ${DASH}`;
   // null/undefined percentile = unknown → dash, never "상위 100%".
   const quality =
     c.qualityPercentile != null ? `quality 상위 ${Math.max(1, 100 - c.qualityPercentile)}%` : `quality ${DASH}`;
@@ -32,7 +32,7 @@ function supportLine(c: ReliefCandidate): string {
   const fatigue = hasFatigue
     ? `연투 ${c.consecutiveDays ?? DASH}일, 최근 3일 ${c.pitchesLast3d ?? DASH}구`
     : `피로 ${DASH}`;
-  return [era, quality, matchup, fatigue].join(" · ");
+  return [whip, quality, matchup, fatigue].join(" · ");
 }
 
 /** The raw model score is a normalized WPA/PA estimate, NOT a win-probability change (spec §3-6) — never show it as %p. */

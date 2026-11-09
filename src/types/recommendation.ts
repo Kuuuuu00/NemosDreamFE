@@ -14,7 +14,10 @@ export interface ReliefCandidate {
   modelScore: number;
   /** 1-based, ascending with `candidates` order. */
   modelRank: number;
+  /** Kept for the server schema, but the real backend always sends null — the UI shows `whip` instead. */
   era?: number | null;
+  /** Server's season WHIP, passed through (no derived stats). */
+  whip?: number | null;
   /** 0–100, relievers' quality percentile (higher = better). */
   /** null = the backend has no percentile for this pitcher (never render it as 0 / "상위 100%"). */
   qualityPercentile?: number | null;

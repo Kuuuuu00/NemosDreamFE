@@ -16,6 +16,7 @@ function toCandidate(c: RawCandidatePitcher, index: number): ReliefCandidate | n
     // Server order is already by score; its rank is shown as-is.
     modelRank: c.model_rank ?? index + 1,
     era: c.season.era,
+    whip: c.season.whip,
     qualityPercentile: c.quality_percentile,
     matchupVsBatter: c.matchup_vs_batter,
     consecutiveDays: c.workload.consecutive_days,
