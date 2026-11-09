@@ -148,5 +148,8 @@ export async function ping(signal?: AbortSignal): Promise<boolean> {
 /** Absolute URL for `/static/players/{id}.webp`-style paths (연동 명세 §0-5). */
 export function resolvePhotoUrl(url: string | null): string | null {
   if (!url) return null;
-  return url.startsWith("http") ? url : `${API_BASE}${url}`;
+  if (url.startsWith("http")) return url; // already absolute
+  // Relative: dev has an empty API_BASE (stays same-origin → Vite `/static` proxy),
+  // production prefixes the server origin.
+  return `${API_BASE}${url.startsWith("/") ? "" : "/"}${url}`;
 }

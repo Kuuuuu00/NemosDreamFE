@@ -1,3 +1,4 @@
+import { PlayerAvatar } from "@/components/common/PlayerAvatar";
 import { Card } from "@/components/ui/card";
 import { Diamond } from "@/components/dashboard/Diamond";
 import { baseStateLabel } from "@/lib/baseState";
@@ -12,7 +13,7 @@ export function MatchupPanel({ pitcher, batter, state }: { pitcher: Pitcher; bat
     <Card className="p-[28px_24px_22px]">
       <div className="mb-[22px] grid grid-cols-[1fr_auto_1fr] items-center gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="h-[72px] w-[72px] shrink-0 rounded-full bg-muted" />
+          <PlayerAvatar key={pitcher.pitcherId} photoUrl={pitcher.photoUrl} name={pitcher.name} />
           <div className="flex flex-col gap-1">
             <span className="text-[19px] font-medium">{pitcher.name}</span>
             <span className="text-xs text-muted-foreground">투수 · {HAND_LABEL[pitcher.throws]}</span>
@@ -26,7 +27,7 @@ export function MatchupPanel({ pitcher, batter, state }: { pitcher: Pitcher; bat
               {batter.order}번 타자 · {BATTER_HAND_LABEL[batter.hitType]}
             </span>
           </div>
-          <div className="h-[72px] w-[72px] shrink-0 rounded-full bg-muted" />
+          <PlayerAvatar key={batter.batterId} photoUrl={batter.photoUrl} name={batter.name} />
         </div>
       </div>
 
