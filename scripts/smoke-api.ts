@@ -106,6 +106,13 @@ check("timeline (actual row, no decisions): pitcher continuing past a half falls
 const exact = timelineSpans([seg(7, 0, 7, 0), seg(7, 1, 8, 2)], 7, new Map([["7-bot", 3], ["8-bot", 3]])); // my row: half lengths from decisions
 check("timeline (my row): crossing pitcher placed exactly from decisions (1/3 | 2/3 … 8th fully)", near(exact[0].end, 1) && near(exact[1].start, 1) && near(exact[1].end, 6), exact);
 
+// ── LI percentile wording (server value = share of league LI below this one) ─
+const { liPercentileLabel } = await import("../src/lib/leverageDisplay");
+check("LI percentile: p=86 → 리그 상위 14%", liPercentileLabel(86) === "리그 상위 14%", liPercentileLabel(86));
+check("LI percentile: p=4 → 리그 하위 4%", liPercentileLabel(4) === "리그 하위 4%", liPercentileLabel(4));
+check("LI percentile: p=50 → 상위 50% (boundary), p=49 → 하위 49%", liPercentileLabel(50) === "리그 상위 50%" && liPercentileLabel(49) === "리그 하위 49%");
+check("LI percentile: p=0 → 하위 1% (never 0%), p=100 → 상위 1%", liPercentileLabel(0) === "리그 하위 1%" && liPercentileLabel(100) === "리그 상위 1%");
+
 // ── pitcherId: number conversion only in endpoints.simulatePa ────────────────
 console.log("\n# pitcherId handling");
 sent.length = 0;

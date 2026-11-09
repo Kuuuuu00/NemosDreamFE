@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { liPercentileLabel } from "@/lib/leverageDisplay";
 import type { LeverageBandDef } from "@/types/api";
 import type { LiPoint } from "@/types/history";
 
@@ -59,7 +60,7 @@ export function LeverageChart({ liSeries, bands, leagueAvg, currentLI, liPercent
             className="whitespace-nowrap text-[11px] text-muted-foreground"
             title="상황 중요도. 문형우 외(2016) 승리확률 테이블 기반"
           >
-            {liPercentile != null ? `리그 상위 ${Math.max(1, Math.round(100 - liPercentile))}%` : ""}
+            {liPercentile != null ? liPercentileLabel(liPercentile) : ""}
           </span>
         </div>
       </div>
