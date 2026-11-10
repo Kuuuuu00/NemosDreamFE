@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, memo } from "react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { Half } from "@/types/api";
@@ -26,7 +26,7 @@ export interface OffenseHalfLogEntry {
 
 export type AtBatLogEntry = PaLogEntry | OffenseHalfLogEntry;
 
-export function AtBatLogCard({ entries }: { entries: AtBatLogEntry[] }) {
+function AtBatLogCardImpl({ entries }: { entries: AtBatLogEntry[] }) {
   const innings = useMemo(() => [...new Set(entries.map((e) => e.inning))].sort((a, b) => a - b), [entries]);
   const [filter, setFilter] = useState<number | null>(null);
   const shown = filter ? entries.filter((e) => e.inning === filter) : entries;
@@ -112,3 +112,6 @@ export function AtBatLogCard({ entries }: { entries: AtBatLogEntry[] }) {
     </Card>
   );
 }
+
+/** Memoised: a dashboard re-render caused only by the overlay phase must not re-render this card. */
+export const AtBatLogCard = memo(AtBatLogCardImpl);

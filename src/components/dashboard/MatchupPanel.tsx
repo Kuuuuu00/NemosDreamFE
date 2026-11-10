@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { PlayerAvatar } from "@/components/common/PlayerAvatar";
 import { Card } from "@/components/ui/card";
 import { Diamond } from "@/components/dashboard/Diamond";
@@ -7,7 +8,7 @@ import type { Batter, GameState, Pitcher } from "@/types/api";
 const HAND_LABEL: Record<string, string> = { L: "좌투", R: "우투", U: "언더" };
 const BATTER_HAND_LABEL: Record<string, string> = { L: "좌타", R: "우타", S: "스위치" };
 
-export function MatchupPanel({
+function MatchupPanelImpl({
   pitcher,
   batter,
   state,
@@ -51,3 +52,6 @@ export function MatchupPanel({
     </Card>
   );
 }
+
+/** Memoised: a dashboard re-render caused only by the overlay phase must not re-render this card. */
+export const MatchupPanel = memo(MatchupPanelImpl);

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiRequestError, createLatest, isAbortError, isApiError, mockExtras, USE_MOCK } from "@/api";
 import { loadSnapshot, saveSnapshot } from "@/api/sessionStore";
 import { useGameHistory } from "@/hooks/useGameHistory";
@@ -117,6 +117,26 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
   // `stateRef` is always the server-confirmed state (all logic reads it). `state`
   // (what renders) normally follows it, except while `viewGate` is up.
   const viewGate = useRef(false);
+  // Refresh results (we-trace / usage timeline / recommend) go through `applyRefresh`. While a hold is open
+  // they are queued, so the page can keep the dashboard unchanged while an overlay fades in; `open()` then
+  // applies everything queued — plus the caller's own update — in ONE transition (one React commit).
+  const refreshHeld = useRef(false);
+  const refreshQueue = useRef<(() => void)[]>([]);
+  const applyRefresh = useCallback((fn: () => void) => {
+    if (refreshHeld.current) refreshQueue.current.push(fn);
+    else startTransition(fn);
+  }, []);
+  const holdRefresh = useCallback((): ((alongside?: () => void) => void) => {
+    refreshHeld.current = true;
+    return (alongside) => {
+      refreshHeld.current = false;
+      const queued = refreshQueue.current.splice(0);
+      startTransition(() => {
+        alongside?.();
+        queued.forEach((f) => f());
+      });
+    };
+  }, []);
   const applyState = useCallback((s: GameState) => {
     stateRef.current = s;
     if (!viewGate.current) setState(s);
@@ -159,7 +179,9 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
         api
           .getWeTrace(id, { signal: weReq.signal })
           .then((we) => {
-            if (weReq.isCurrent()) setWeTrace(we);
+            applyRefresh(() => {
+              if (weReq.isCurrent()) setWeTrace(we);
+            });
           })
           .catch((e) => {
             if (isAbortError(e)) return;
@@ -177,7 +199,9 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
           api
             .getResult(id, { signal: resReq.signal })
             .then((r) => {
-              if (resReq.isCurrent()) setUsageTimeline({ mine: r.pitcherUsage, actual: r.actualPitcherUsage });
+              applyRefresh(() => {
+                if (resReq.isCurrent()) setUsageTimeline({ mine: r.pitcherUsage, actual: r.actualPitcherUsage });
+              });
             })
             .catch((e) => {
               // Auxiliary card: don't fail the whole refresh over it.
@@ -194,9 +218,12 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
             .then((bundle) => {
               if (seq !== recommendSeq.current) return;
               recommendDataRef.current = bundle.summary;
-              setRecommendData(bundle.summary);
-              setRecommendation(bundle.ranking);
-              setNoAvailablePitcher(false);
+              applyRefresh(() => {
+                if (seq !== recommendSeq.current) return;
+                setRecommendData(bundle.summary);
+                setRecommendation(bundle.ranking);
+                setNoAvailablePitcher(false);
+              });
             })
             .catch((e) => {
               if (seq !== recommendSeq.current || isAbortError(e)) return;
@@ -220,7 +247,7 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
       await Promise.all(tasks);
       return ok;
     },
-    [fail],
+    [applyRefresh, fail],
   );
 
   useEffect(() => {
@@ -450,6 +477,7 @@ export function useGameSession(params: SessionParams | null, resumeSessionId: st
     /** Non-null while the previous state is deliberately kept on screen (result effect playing); see `releaseView`. */
     viewHold,
     releaseView,
+    holdRefresh,
     prepareAdvance,
     lastResult,
     decidedActual,

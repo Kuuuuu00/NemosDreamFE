@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { MATCHUP_LABEL } from "@/lib/handMatchup";
@@ -9,6 +10,8 @@ interface ReliefRankingListProps {
   candidates: ReliefCandidate[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** false while an overlay covers the dashboard: the re-order is invisible, so skip the layout animation (it forces layout measurement). */
+  animateLayout?: boolean;
   /** Real backend only: already-pitched relievers, shown as a gray group below (no score, no bar). */
   usedPitchers?: UsedPitcher[];
   totalCount: number;
@@ -45,10 +48,11 @@ function scoreTooltip(score: number): string {
   return `모델 점수 ${score.toFixed(4)} (투수 관점 타석당 기대 성과 추정 · 실제 승률 변화 아님)`;
 }
 
-export function ReliefRankingList({
+function ReliefRankingListImpl({
   candidates,
   selectedId,
   onSelect,
+  animateLayout = true,
   usedPitchers = [],
   totalCount,
   estimated,
@@ -108,7 +112,7 @@ export function ReliefRankingList({
               return (
                 <motion.div
                   key={c.pitcherId}
-                  layout
+                  layout={animateLayout}
                   transition={{ duration: 0.38, ease: [0.4, 0, 0.2, 1] }}
                   role="option"
                   aria-selected={selected}
@@ -177,3 +181,6 @@ export function ReliefRankingList({
     </Card>
   );
 }
+
+/** Memoised: a dashboard re-render caused only by the overlay phase must not re-render this card. */
+export const ReliefRankingList = memo(ReliefRankingListImpl);

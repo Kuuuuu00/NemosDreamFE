@@ -1,10 +1,11 @@
+import { memo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { OutcomeEffect } from "@/components/game/OutcomeEffect";
 import { Card } from "@/components/ui/card";
 import { outcomeTone } from "@/lib/outcomeDisplay";
 import type { ActualDecision, PAResult } from "@/types/api";
 
-export function OutcomePanel({
+function OutcomePanelImpl({
   result,
   simulating,
   paIndex,
@@ -73,3 +74,6 @@ export function OutcomePanel({
     </Card>
   );
 }
+
+/** Memoised: a dashboard re-render caused only by the overlay phase must not re-render this card. */
+export const OutcomePanel = memo(OutcomePanelImpl);

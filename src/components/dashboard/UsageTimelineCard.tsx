@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Card } from "@/components/ui/card";
 import type { Half, Pitcher, PitcherUsageSegment, UsageEntry } from "@/types/api";
 
@@ -20,7 +21,7 @@ interface Row {
   isCurrent: boolean;
 }
 
-export function UsageTimelineCard({ usage, usageToday, current, currentInningsLabel }: UsageTimelineCardProps) {
+function UsageTimelineCardImpl({ usage, usageToday, current, currentInningsLabel }: UsageTimelineCardProps) {
   // TODO(backend): REPORT #7 — starters / pre-session relievers are not in the API, so the range is "세션 시작 이후".
   const real = !!usage && usage.mine.length > 0;
   const rows: Row[] = real
@@ -84,3 +85,6 @@ export function UsageTimelineCard({ usage, usageToday, current, currentInningsLa
     </Card>
   );
 }
+
+/** Memoised: a dashboard re-render caused only by the overlay phase must not re-render this card. */
+export const UsageTimelineCard = memo(UsageTimelineCardImpl);

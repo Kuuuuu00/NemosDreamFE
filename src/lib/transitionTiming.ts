@@ -18,3 +18,8 @@ export function holdAfterEffectMs(): number {
   const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   return reduced ? HOLD_AFTER_EFFECT_REDUCED_MS : HOLD_AFTER_EFFECT_MS;
 }
+
+/** The offense overlay fades in over ~300ms (6% of its 5s timeline). Everything that re-renders the
+ * dashboard underneath (state release, we-trace / usage / recommend results) waits this long so the
+ * heavy React commits don't land inside the appear animation. */
+export const OVERLAY_SETTLE_MS = 450;

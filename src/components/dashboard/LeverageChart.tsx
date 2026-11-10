@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import { Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { liPercentileLabel } from "@/lib/leverageDisplay";
 import type { LeverageBandDef } from "@/types/api";
@@ -18,7 +18,7 @@ function bandLabel(li: number, bands: LeverageBandDef[]): string {
   return bands.find((b) => li >= b.min && li < b.max)?.label ?? bands[bands.length - 1]?.label ?? "";
 }
 
-export function LeverageChart({ liSeries, bands, leagueAvg, currentLI, liPercentile }: LeverageChartProps) {
+function LeverageChartImpl({ liSeries, bands, leagueAvg, currentLI, liPercentile }: LeverageChartProps) {
   // Nothing is computed here: points are the server's per-state LI, recorded by
   // useGameHistory (defense states only). A `li: null` point breaks the line
   // (connectNulls=false) so each defensive half-inning is its own segment.
@@ -102,3 +102,6 @@ export function LeverageChart({ liSeries, bands, leagueAvg, currentLI, liPercent
     </div>
   );
 }
+
+/** Memoised: a dashboard re-render caused only by the overlay phase must not re-render this card. */
+export const LeverageChart = memo(LeverageChartImpl);

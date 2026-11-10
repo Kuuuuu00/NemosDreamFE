@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Card } from "@/components/ui/card";
 import type { Pitcher, UsageEntry } from "@/types/api";
 import type { UsedPitcher } from "@/types/recommendation";
@@ -11,7 +12,7 @@ interface UsedPitchersChipsProps {
   usedTonight?: Pitcher[];
 }
 
-export function UsedPitchersChips({ usedPitchers = [], usageToday = [], usedTonight = [] }: UsedPitchersChipsProps) {
+function UsedPitchersChipsImpl({ usedPitchers = [], usageToday = [], usedTonight = [] }: UsedPitchersChipsProps) {
   const chips = [
     ...usageToday.map((u) => ({ name: u.name, reason: null as string | null })),
     ...usedTonight.map((p) => ({ name: p.name, reason: null as string | null })),
@@ -40,3 +41,6 @@ export function UsedPitchersChips({ usedPitchers = [], usageToday = [], usedToni
     </Card>
   );
 }
+
+/** Memoised: a dashboard re-render caused only by the overlay phase must not re-render this card. */
+export const UsedPitchersChips = memo(UsedPitchersChipsImpl);

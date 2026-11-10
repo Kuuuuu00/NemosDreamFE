@@ -1,8 +1,9 @@
+import { memo } from "react";
 import { Card } from "@/components/ui/card";
 import { OUTCOME_DISPLAY_ORDER, OUTCOME_LABELS, outcomeTone } from "@/lib/outcomeDisplay";
 import type { PAResult } from "@/types/api";
 
-export function ProbabilityDistribution({ result }: { result: PAResult }) {
+function ProbabilityDistributionImpl({ result }: { result: PAResult }) {
   const maxProb = Math.max(...OUTCOME_DISPLAY_ORDER.map((code) => result.probs[code] ?? 0)) || 1;
 
   return (
@@ -40,3 +41,6 @@ export function ProbabilityDistribution({ result }: { result: PAResult }) {
     </Card>
   );
 }
+
+/** Memoised: a dashboard re-render caused only by the overlay phase must not re-render this card. */
+export const ProbabilityDistribution = memo(ProbabilityDistributionImpl);

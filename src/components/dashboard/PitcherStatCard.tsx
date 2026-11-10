@@ -1,8 +1,9 @@
+import { memo } from "react";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { Pitcher } from "@/types/api";
 
-export function PitcherStatCard({ pitcher }: { pitcher: Pitcher }) {
+function PitcherStatCardImpl({ pitcher }: { pitcher: Pitcher }) {
   return (
     <Card className="p-4">
       <div className="mb-2 text-[11px] text-muted-foreground">현재 투수</div>
@@ -46,3 +47,6 @@ function SplitRow({ label, split }: { label: string; split: { avg: number | null
 function rate(v: number | null): string {
   return v === null ? "—" : v.toFixed(3).replace(/^0/, "");
 }
+
+/** Memoised: a dashboard re-render caused only by the overlay phase must not re-render this card. */
+export const PitcherStatCard = memo(PitcherStatCardImpl);

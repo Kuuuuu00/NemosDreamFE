@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -13,7 +14,7 @@ interface ActionBarProps {
   simulating: boolean;
 }
 
-export function ActionBar({ canUndo, onUndo, onStay, onSwitch, canSwitch, locked, simulating }: ActionBarProps) {
+function ActionBarImpl({ canUndo, onUndo, onStay, onSwitch, canSwitch, locked, simulating }: ActionBarProps) {
   const busy = locked || simulating;
   return (
     <Card className="p-4">
@@ -34,3 +35,6 @@ export function ActionBar({ canUndo, onUndo, onStay, onSwitch, canSwitch, locked
     </Card>
   );
 }
+
+/** Memoised: a dashboard re-render caused only by the overlay phase must not re-render this card. */
+export const ActionBar = memo(ActionBarImpl);

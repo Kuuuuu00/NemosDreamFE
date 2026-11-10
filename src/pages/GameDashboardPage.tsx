@@ -28,9 +28,11 @@ import { useConfig } from "@/hooks/useConfig";
 import { useExpiredRedirect } from "@/hooks/useExpiredRedirect";
 import { useTeams } from "@/hooks/useTeams";
 import { OUTCOME_LABELS } from "@/lib/outcomeDisplay";
-import { EFFECT_SAFETY_MS, MIN_OFFENSE_OVERLAY_MS, holdAfterEffectMs } from "@/lib/transitionTiming";
+import { EFFECT_SAFETY_MS, MIN_OFFENSE_OVERLAY_MS, OVERLAY_SETTLE_MS, holdAfterEffectMs } from "@/lib/transitionTiming";
 import type { AdvanceHalfSummary } from "@/types/api";
+import type { ReliefCandidate } from "@/types/recommendation";
 
+const NO_CANDIDATES: ReliefCandidate[] = [];
 const sleep = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
 /** My-team WE swing of an offense half. TODO(backend): server `pa_log[].delta_we` (REPORT #3). The adapter already prefers
@@ -64,6 +66,7 @@ export default function GameDashboardPage() {
     paInFlight,
     viewHold,
     releaseView,
+    holdRefresh,
     prepareAdvance,
     lastResult,
     decidedActual,
@@ -165,6 +168,14 @@ export default function GameDashboardPage() {
     return (code: string) => map.get(code) ?? code;
   }, [teams]);
 
+  // Stable identities for memoised cards: the real handlers are re-created every render (they close over
+  // state), so cards get these thin wrappers that always call the latest one.
+  const actions = useRef<{ stay: () => void; swap: () => void; undo: () => void }>({ stay() {}, swap() {}, undo() {} });
+  const onStay = useCallback(() => actions.current.stay(), []);
+  const onSwitch = useCallback(() => actions.current.swap(), []);
+  const onUndoStable = useCallback(() => actions.current.undo(), []);
+  const onSelectRelief = useCallback((id: string) => setSelectedId((prev) => (prev === id ? null : id)), []);
+
   if (!params) return <Navigate to="/" replace />;
 
   /**
@@ -175,9 +186,13 @@ export default function GameDashboardPage() {
    */
   async function runAdvance(prepared: ReturnType<typeof prepareAdvance> = prepareAdvance()) {
     holdPaResult();
+    // The overlay fades in over ~300ms: keep the dashboard unchanged underneath until it has settled.
+    // Refresh results (we-trace / usage / recommend) and the confirmed state are applied after the gate opens,
+    // while the overlay covers the screen.
+    const openGate = holdRefresh();
     const out = prepared ? await prepared.commit() : null;
-    releaseView(); // confirmed state replaces the held one (under the overlay when there is one)
     if (!out || out.state.isGameOver) {
+      openGate(releaseView);
       cancel(); // failure: state stays on the offense start → "공격 이닝 진행" button retries; game over: effect above navigates
       return;
     }
@@ -198,6 +213,9 @@ export default function GameDashboardPage() {
       },
       out.state.myRole === "defense" ? { inning: out.state.inning, half: out.state.half } : null,
     );
+    window.setTimeout(() => {
+      openGate(releaseView); // confirmed state + refreshed panels in one commit, under the overlay
+    }, OVERLAY_SETTLE_MS);
   }
 
   async function handleCommit(args: { pitcherId: string; pitcherName: string; changed: boolean }) {
@@ -233,6 +251,12 @@ export default function GameDashboardPage() {
     navigate("/");
   }
 
+  actions.current = {
+    stay: () => state && void handleCommit({ pitcherId: String(state.currentPitcher.pitcherId), pitcherName: state.currentPitcher.name, changed: false }),
+    swap: () => selected && void handleCommit({ pitcherId: selected.pitcherId, pitcherName: selected.name, changed: true }),
+    undo: handleUndo,
+  };
+
   // The session never came up, or a required call (recommend) failed before the
   // first screen could be drawn: nothing to show but the error. SESSION_EXPIRED
   // is handled by the redirect above; GAME_NOT_FOUND can't be retried.
@@ -259,7 +283,7 @@ export default function GameDashboardPage() {
     );
   }
 
-  const candidates = recommendation?.candidates ?? [];
+  const candidates = recommendation?.candidates ?? NO_CANDIDATES;
   const isOffense = state.myRole === "offense";
   const phaseBusy = phase.kind === "paResult" || phase.kind === "offense";
   const selected = candidates.find((c) => c.pitcherId === selectedId) ?? null;
@@ -387,7 +411,8 @@ export default function GameDashboardPage() {
                     <ReliefRankingList
                       candidates={candidates}
                       selectedId={selected?.pitcherId ?? null}
-                      onSelect={(id) => setSelectedId((prev) => (prev === id ? null : id))}
+                      onSelect={onSelectRelief}
+                      animateLayout={phase.kind === "idle"}
                       usedPitchers={recommendation?.usedPitchers}
                       totalCount={recommendData?.bullpenSummary.total ?? 0}
                       estimated={recommendData?.bullpenSource === "estimated"}
@@ -401,15 +426,9 @@ export default function GameDashboardPage() {
                   <div className="order-[36] md:order-none">
                     <ActionBar
                       canUndo={state.canUndo}
-                      onUndo={handleUndo}
-                      onStay={() =>
-                        handleCommit({
-                          pitcherId: String(state.currentPitcher.pitcherId),
-                          pitcherName: state.currentPitcher.name,
-                          changed: false,
-                        })
-                      }
-                      onSwitch={() => selected && handleCommit({ pitcherId: selected.pitcherId, pitcherName: selected.name, changed: true })}
+                      onUndo={onUndoStable}
+                      onStay={onStay}
+                      onSwitch={onSwitch}
                       canSwitch={selected !== null && !noAvailablePitcher}
                       locked={phaseBusy}
                       simulating={simulating}

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Card } from "@/components/ui/card";
 import { handMatchup, MATCHUP_LABEL } from "@/lib/handMatchup";
 import type { Batter, Pitcher, ThisOuting } from "@/types/api";
@@ -22,7 +23,7 @@ interface CurrentPitcherCardProps {
 
 /** Replacement-decision facts only — the model has no score for the pitcher
  * on the mound (it ranks relievers for a decided change), so none is shown. */
-export function CurrentPitcherCard({ pitcher, batter, badgeLabel, thisOuting }: CurrentPitcherCardProps) {
+function CurrentPitcherCardImpl({ pitcher, batter, badgeLabel, thisOuting }: CurrentPitcherCardProps) {
   const w = pitcher.workload;
   // Server value first; the client-side hand read is only a fallback (mock / null).
   const matchup = thisOuting?.matchupVsBatter ?? handMatchup(pitcher.throws, batter.hitType);
@@ -62,3 +63,6 @@ function Fact({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+/** Memoised: a dashboard re-render caused only by the overlay phase must not re-render this card. */
+export const CurrentPitcherCard = memo(CurrentPitcherCardImpl);

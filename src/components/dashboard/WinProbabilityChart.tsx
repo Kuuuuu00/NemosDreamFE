@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import { Area, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { WeTraceResponse } from "@/types/api";
 
@@ -11,7 +11,7 @@ function keyOf(p: { inning: number; half: string }) {
   return `${p.inning}-${p.half}`;
 }
 
-export function WinProbabilityChart({ weTrace, teamName }: WinProbabilityChartProps) {
+function WinProbabilityChartImpl({ weTrace, teamName }: WinProbabilityChartProps) {
   const data = useMemo(() => {
     const simByKey = new Map<string, number>();
     for (const p of weTrace.simulated) simByKey.set(keyOf(p), p.we); // later entries (same half) overwrite — end-of-half value wins
@@ -105,3 +105,6 @@ export function WinProbabilityChart({ weTrace, teamName }: WinProbabilityChartPr
     </div>
   );
 }
+
+/** Memoised: a dashboard re-render caused only by the overlay phase must not re-render this card. */
+export const WinProbabilityChart = memo(WinProbabilityChartImpl);

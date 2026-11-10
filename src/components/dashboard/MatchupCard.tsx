@@ -1,10 +1,11 @@
+import { memo } from "react";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { Batter } from "@/types/api";
 
 const HAND_LABEL: Record<string, string> = { L: "좌타", R: "우타", S: "스위치" };
 
-export function MatchupCard({ batter, pitcherName }: { batter: Batter; pitcherName: string }) {
+function MatchupCardImpl({ batter, pitcherName }: { batter: Batter; pitcherName: string }) {
   return (
     <Card className="p-4">
       <div className="mb-2 text-[11px] text-muted-foreground">타석</div>
@@ -49,3 +50,6 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
     </div>
   );
 }
+
+/** Memoised: a dashboard re-render caused only by the overlay phase must not re-render this card. */
+export const MatchupCard = memo(MatchupCardImpl);

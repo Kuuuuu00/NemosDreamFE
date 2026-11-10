@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { TeamEmblem } from "@/components/common/TeamEmblem";
 import { Card } from "@/components/ui/card";
 import type { GameState } from "@/types/api";
@@ -42,7 +43,7 @@ function LineRow({
   );
 }
 
-export function ScoreHeader({ state, myTeamName, oppTeamName }: ScoreHeaderProps) {
+function ScoreHeaderImpl({ state, myTeamName, oppTeamName }: ScoreHeaderProps) {
   const halfLabel = state.half === "top" ? "초" : "말";
   const awayName = state.awayTeam === state.myTeam ? myTeamName : oppTeamName;
   const homeName = state.homeTeam === state.myTeam ? myTeamName : oppTeamName;
@@ -100,3 +101,6 @@ export function ScoreHeader({ state, myTeamName, oppTeamName }: ScoreHeaderProps
     </div>
   );
 }
+
+/** Memoised: a dashboard re-render caused only by the overlay phase must not re-render this card. */
+export const ScoreHeader = memo(ScoreHeaderImpl);
