@@ -28,10 +28,11 @@ import { useConfig } from "@/hooks/useConfig";
 import { useExpiredRedirect } from "@/hooks/useExpiredRedirect";
 import { useTeams } from "@/hooks/useTeams";
 import { OUTCOME_LABELS } from "@/lib/outcomeDisplay";
-import { EFFECT_SAFETY_MS, MIN_OFFENSE_OVERLAY_MS, OVERLAY_SETTLE_MS, holdAfterEffectMs } from "@/lib/transitionTiming";
+import { EFFECT_SAFETY_MS, MIN_OFFENSE_OVERLAY_MS, OVERLAY_BACKDROP_BLUR, OVERLAY_SETTLE_MS, holdAfterEffectMs } from "@/lib/transitionTiming";
 import type { AdvanceHalfSummary } from "@/types/api";
 import type { ReliefCandidate } from "@/types/recommendation";
 
+const blurStyle = { "--overlay-blur": `${OVERLAY_BACKDROP_BLUR}px` } as React.CSSProperties;
 const NO_CANDIDATES: ReliefCandidate[] = [];
 const sleep = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
@@ -290,13 +291,10 @@ export default function GameDashboardPage() {
   const paCount = history.log.filter((entry) => entry.kind === "pa").length;
   const currentInningsLabel = `${state.inning}회${state.half === "top" ? "초" : "말"}~`;
 
-  const blurClass =
-    phase.kind === "offense" ? "dash-blur-offense" : phase.kind === "inning" ? "dash-blur-inning" : "";
-
   return (
     <>
     <div
-      className={`flex w-full justify-center bg-background px-4 py-3.5 text-foreground sm:px-4 ${blurClass}`}
+      className="flex w-full justify-center bg-background px-4 py-3.5 text-foreground sm:px-4"
     >
       <div className="flex w-full max-w-[1600px] flex-col gap-3">
         <div className="flex items-center justify-between gap-2 px-1">
@@ -445,6 +443,12 @@ export default function GameDashboardPage() {
       <div className="pointer-events-none fixed bottom-2 right-2 z-40 rounded bg-chart-5 px-1.5 py-0.5 text-[10px] font-medium text-background">
         {recommendData.source}
       </div>
+    )}
+    {OVERLAY_BACKDROP_BLUR > 0 && phase.kind === "offense" && (
+      <div className="overlay-blur overlay-blur--offense" style={blurStyle} aria-hidden="true" />
+    )}
+    {OVERLAY_BACKDROP_BLUR > 0 && phase.kind === "inning" && (
+      <div key={`blur-${phase.inning}-${phase.half}`} className="overlay-blur overlay-blur--inning" style={blurStyle} aria-hidden="true" />
     )}
     {phase.kind === "offense" && (
       <OffenseHalfOverlay

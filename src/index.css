@@ -337,26 +337,36 @@
     to { opacity: 1; transform: scale(1); }
   }
 
-  /* Dashboard blur shares the overlays' timelines (blur is what sells the
-     "paused" feel — don't drop it). */
-  .dash-blur-inning { animation: dash-blur-inning 1.45s both; }
-  .dash-blur-offense { animation: dash-blur-offense 5s both; }
-  @keyframes dash-blur-inning {
-    0% { filter: blur(0); }
-    15.2%, 79.3% { filter: blur(2px); }
-    100% { filter: blur(0); }
+  /* Dashboard blur: a static backdrop-filter layer (never animated). It is toggled with `visibility`
+     (discrete, no per-frame cost) on the same timelines as the overlays, so it switches on only once the
+     dark layer above it is nearly opaque. A blurred layer must not live inside the overlay itself: that
+     element animates opacity, which makes it a backdrop root and would blur nothing. */
+  .overlay-blur {
+    position: fixed;
+    inset: 0;
+    z-index: 49;
+    pointer-events: none;
+    backdrop-filter: blur(var(--overlay-blur, 2px));
+    visibility: hidden;
   }
-  @keyframes dash-blur-offense {
-    0% { filter: blur(0); }
-    6%, 94% { filter: blur(2px); }
-    100% { filter: blur(0); }
+  .overlay-blur--inning { animation: overlay-blur-inning 1.45s both; }
+  .overlay-blur--offense { animation: overlay-blur-offense 5s both; }
+  @keyframes overlay-blur-inning {
+    0%, 15.1% { visibility: hidden; }
+    15.2%, 79.2% { visibility: visible; }
+    79.3%, 100% { visibility: hidden; }
+  }
+  @keyframes overlay-blur-offense {
+    0%, 5.9% { visibility: hidden; }
+    6%, 93.9% { visibility: visible; }
+    94%, 100% { visibility: hidden; }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .inning-overlay { animation: inning-reduced 0.6s both; }
     .inning-text, .inning-line, .inning-sub { animation: none; }
     .offense-item, .offense-summary { animation: offense-fade 0.3s both; transform: none; }
-    .dash-blur-inning, .dash-blur-offense { animation: none; }
+    .overlay-blur { display: none; }
   }
 
   @media (prefers-reduced-motion: reduce) {
