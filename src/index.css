@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Subset: HOMERUN STRIKEOUT 3루타2루타안타볼넷병살타땅볼아웃플라이득점회초말 0-9. Other glyphs fall back to Pretendard. */
+@font-face {
+  font-family: "Black Han Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/BlackHanSans-subset.ttf") format("truetype");
+}
+
 :root {
   --background: oklch(0.1822 0 0);
   --card: oklch(0.209 0 0);
