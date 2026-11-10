@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { choiceWithRank, modelTop, signed, situationLabel } from "@/lib/resultDisplay";
+import { ChoiceCell } from "@/components/result/ChoiceCell";
+import { comparisonSummary, modelTop, nameOf, rankOf, signed, situationLabel } from "@/lib/resultDisplay";
 import type { SimulationResult } from "@/types/api";
 
 interface DecisionComparisonProps {
@@ -14,18 +15,7 @@ interface DecisionComparisonProps {
 /** Side-by-side of my choice / the real manager's choice against the model's
  * ranking. Ranks are shown as a reference point, not as right or wrong. */
 export function DecisionComparison({ decisions, totalCount, showAll, onToggleAll, comparison: c }: DecisionComparisonProps) {
-  // TODO(backend): top3 agreement is null while the model ranking is unavailable → fall back to sameAsActual.
-  const summary =
-    c.decisionCount === 0
-      ? "이 세션에서는 투수 교체가 없어 비교할 결정이 없습니다."
-      : c.myWithinTopK !== null
-        ? `내 선택 ${c.decisionCount}회 중 ${c.myWithinTopK}회가 모델 상위 ${c.topK}위 이내였습니다.` +
-          (c.actualComparableCount > 0 && c.actualWithinTopK !== null
-            ? ` 실제 감독은 ${c.actualComparableCount}회 중 ${c.actualWithinTopK}회였습니다.`
-            : "")
-        : c.sameAsActual !== undefined
-          ? `${c.decisionCount}번의 결정 중 ${c.sameAsActual}번이 실제 감독과 같았습니다.`
-          : `${c.decisionCount}번의 결정을 내렸습니다.`;
+  const { line1, line2 } = comparisonSummary(c);
 
   return (
     <div className="rounded-lg bg-card p-[18px_22px_16px]">
@@ -37,7 +27,10 @@ export function DecisionComparison({ decisions, totalCount, showAll, onToggleAll
           </Button>
         ) : null}
       </div>
-      <div className="mb-3 text-xs text-muted-foreground">{summary}</div>
+      <div className="mb-3 flex flex-col gap-0.5 text-xs text-muted-foreground">
+        <span>{line1}</span>
+        {line2 && <span>{line2}</span>}
+      </div>
       {decisions.length === 0 && totalCount > 0 && (
         <div className="mb-2 text-xs text-muted-foreground">교체한 타석이 없습니다. 전체 타석 보기로 확인할 수 있습니다.</div>
       )}
@@ -46,7 +39,7 @@ export function DecisionComparison({ decisions, totalCount, showAll, onToggleAll
           <table className="w-full min-w-[640px] border-collapse text-left text-xs">
             <thead>
               <tr className="text-[11px] text-muted-foreground">
-                {["상황", "LI", "모델 1위", "내 선택 (모델 순위)", "실제 감독 (모델 순위)", "결과 ΔWE"].map((h) => (
+                {["상황", "LI", "모델 1위 (교체 시)", "내 선택", "실제 감독", "결과 ΔWE"].map((h) => (
                   <th key={h} scope="col" className="whitespace-nowrap border-b border-border px-2 py-2 font-normal">
                     {h}
                   </th>
@@ -61,9 +54,9 @@ export function DecisionComparison({ decisions, totalCount, showAll, onToggleAll
                   </td>
                   <td className="whitespace-nowrap px-2 py-2.5 text-chart-5">{d.li.toFixed(2)}</td>
                   <td className="whitespace-nowrap px-2 py-2.5">{modelTop(d)?.name ?? "—"}</td>
-                  <td className="whitespace-nowrap px-2 py-2.5">{choiceWithRank(d, d.chosenPitcherId) ?? "—"}</td>
+                  <td className="whitespace-nowrap px-2 py-2.5"><ChoiceCell name={nameOf(d, "mine")} isChange={d.isChange ?? true} rank={rankOf(d, "mine")} /></td>
                   <td className="whitespace-nowrap px-2 py-2.5 text-muted-foreground">
-                    {choiceWithRank(d, d.actualPitcherId) ?? "—"}
+                    <ChoiceCell name={nameOf(d, "actual")} isChange={d.actualIsChange ?? (d.actualPitcherId === null ? null : true)} rank={rankOf(d, "actual")} />
                   </td>
                   <td
                     className="whitespace-nowrap px-2 py-2.5"

@@ -53,8 +53,19 @@ export default function ResultPage() {
 
   if (status !== "ready" || !result || !weTrace) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-background text-foreground">
-        <span className="text-sm text-muted-foreground">결과를 불러오는 중...</span>
+      <div className="flex w-full justify-center bg-background px-4 py-3.5 text-foreground">
+        <div className="flex w-full max-w-[1408px] flex-col gap-3" role="status" aria-live="polite">
+          <div className="h-24 animate-pulse rounded-lg bg-card" />
+          <div className="rounded-lg bg-card p-[18px_22px_16px]">
+            <div className="mb-1 text-sm">결정 비교 · 모델 추천과의 비교</div>
+            <div className="mb-3 text-xs text-muted-foreground">모델 순위 계산 중… 처음 불러올 때는 몇 초 걸릴 수 있습니다.</div>
+            <div className="flex flex-col gap-2.5">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-8 animate-pulse rounded bg-muted" />
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

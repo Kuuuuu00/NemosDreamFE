@@ -1,0 +1,251 @@
+{
+ "simulated": {
+  "score": {
+   "my": 3,
+   "opp": 2
+  },
+  "runs_allowed_in_range": 1,
+  "final_we": 0.6349,
+  "result": "in_progress"
+ },
+ "actual": {
+  "score": {
+   "my": 1,
+   "opp": 2
+  },
+  "runs_allowed_in_range": 1,
+  "final_we": 0.0,
+  "result": "loss"
+ },
+ "pitcher_usage": [
+  {
+   "pitcher_id": 65056,
+   "name": "엄상백",
+   "from": {
+    "inning": 7,
+    "half": "top",
+    "pa": 0
+   },
+   "to": {
+    "inning": 7,
+    "half": "top",
+    "pa": 2
+   },
+   "delta_we_defender": -0.0099,
+   "pitches_est": 12,
+   "li_at_entry": 0.9026
+  },
+  {
+   "pitcher_id": 55730,
+   "name": "폰세",
+   "from": {
+    "inning": 8,
+    "half": "top",
+    "pa": 0
+   },
+   "to": {
+    "inning": 8,
+    "half": "top",
+    "pa": 4
+   },
+   "delta_we_defender": -0.2323,
+   "pitches_est": 19,
+   "li_at_entry": 0.8817
+  }
+ ],
+ "actual_pitcher_usage": [
+  {
+   "pitcher_id": 55743,
+   "name": "정우주",
+   "from": {
+    "inning": 7,
+    "half": "top",
+    "pa": 0
+   },
+   "to": {
+    "inning": 7,
+    "half": "top",
+    "pa": 2
+   },
+   "delta_we_defender": -0.0099,
+   "pitches_est": 11,
+   "li_at_entry": 0.9026
+  },
+  {
+   "pitcher_id": 61666,
+   "name": "한승혁",
+   "from": {
+    "inning": 8,
+    "half": "top",
+    "pa": 0
+   },
+   "to": {
+    "inning": 8,
+    "half": "top",
+    "pa": 4
+   },
+   "delta_we_defender": -0.0109,
+   "pitches_est": 25,
+   "li_at_entry": 1.5185
+  },
+  {
+   "pitcher_id": 53754,
+   "name": "김서현",
+   "from": {
+    "inning": 9,
+    "half": "top",
+    "pa": 0
+   },
+   "to": {
+    "inning": 9,
+    "half": "top",
+    "pa": 4
+   },
+   "delta_we_defender": -0.26,
+   "pitches_est": 21,
+   "li_at_entry": 1.5185
+  }
+ ],
+ "decisions": [
+  {
+   "inning": 7,
+   "half": "top",
+   "leverage_index": 0.9026,
+   "model_top": null,
+   "user_choice": {
+    "pitcher_id": 65056,
+    "name": "엄상백",
+    "model_rank": null
+   },
+   "actual_choice": {
+    "pitcher_id": 55743,
+    "name": "정우주",
+    "model_rank": null
+   },
+   "outcome": "BB",
+   "delta_we_defender": -0.0457,
+   "is_change": false
+  },
+  {
+   "inning": 7,
+   "half": "top",
+   "leverage_index": 1.4106,
+   "model_top": null,
+   "user_choice": {
+    "pitcher_id": 65056,
+    "name": "엄상백",
+    "model_rank": null
+   },
+   "actual_choice": null,
+   "outcome": "GDP",
+   "delta_we_defender": 0.0763,
+   "is_change": false
+  },
+  {
+   "inning": 7,
+   "half": "top",
+   "leverage_index": 0.9805,
+   "model_top": null,
+   "user_choice": {
+    "pitcher_id": 65056,
+    "name": "엄상백",
+    "model_rank": null
+   },
+   "actual_choice": null,
+   "outcome": "GO",
+   "delta_we_defender": -0.0405,
+   "is_change": false
+  },
+  {
+   "inning": 8,
+   "half": "top",
+   "leverage_index": 0.8817,
+   "model_top": {
+    "pitcher_id": 55730,
+    "name": "폰세"
+   },
+   "user_choice": {
+    "pitcher_id": 55730,
+    "name": "폰세",
+    "model_rank": 1
+   },
+   "actual_choice": null,
+   "outcome": "2B",
+   "delta_we_defender": -0.0695,
+   "is_change": true
+  },
+  {
+   "inning": 8,
+   "half": "top",
+   "leverage_index": 1.6251,
+   "model_top": null,
+   "user_choice": {
+    "pitcher_id": 55730,
+    "name": "폰세",
+    "model_rank": null
+   },
+   "actual_choice": null,
+   "outcome": "BB",
+   "delta_we_defender": -0.0641,
+   "is_change": false
+  },
+  {
+   "inning": 8,
+   "half": "top",
+   "leverage_index": 2.6741,
+   "model_top": null,
+   "user_choice": {
+    "pitcher_id": 55730,
+    "name": "폰세",
+    "model_rank": null
+   },
+   "actual_choice": null,
+   "outcome": "1B",
+   "delta_we_defender": -0.2162,
+   "is_change": false
+  },
+  {
+   "inning": 8,
+   "half": "top",
+   "leverage_index": 2.7451,
+   "model_top": null,
+   "user_choice": {
+    "pitcher_id": 55730,
+    "name": "폰세",
+    "model_rank": null
+   },
+   "actual_choice": null,
+   "outcome": "SO",
+   "delta_we_defender": 0.0536,
+   "is_change": false
+  },
+  {
+   "inning": 8,
+   "half": "top",
+   "leverage_index": 2.9845,
+   "model_top": null,
+   "user_choice": {
+    "pitcher_id": 55730,
+    "name": "폰세",
+    "model_rank": null
+   },
+   "actual_choice": null,
+   "outcome": "SO",
+   "delta_we_defender": 0.0639,
+   "is_change": false
+  }
+ ],
+ "agreement": {
+  "total_decisions": 8,
+  "mine_in_top3": null,
+  "actual_in_top3": null,
+  "same_as_actual": 0,
+  "my_changes": 1,
+  "actual_changes": 1
+ },
+ "bullpen_used": {
+  "mine": 2,
+  "actual": 4,
+  "total": 13
+ }
+}

@@ -11,8 +11,12 @@
  * does). If matching gets complicated, stop and simplify — don't grow this.
  */
 import * as mock from "@/mocks/api";
+import { FIXTURE_META, fixtureResult, fixtureWeTrace } from "@/mocks/fixtures";
 import type { GameState } from "@/types/api";
 import { ApiRequestError } from "./client";
+import { toResult, withActualChange } from "./adapters/result";
+import { toWeTrace } from "./adapters/meta";
+import type { SessionMeta } from "./sessionStore";
 import type { ApiSurface } from "./types";
 
 const pendingOffense = new Map<string, { next: GameState; summary: NonNullable<Awaited<ReturnType<typeof mock.simulatePa>>["result"]["offenseHalfSummary"]> }>();
@@ -76,8 +80,17 @@ export const mockApi: ApiSurface = {
     pendingOffense.delete(sessionId);
     return mock.undoLast(sessionId);
   },
-  getWeTrace: (sessionId) => mock.getWeTrace(sessionId),
+  async getWeTrace(sessionId) {
+    if (fixtureResult(sessionId)) return toWeTrace(fixtureWeTrace, FIXTURE_META.myTeam);
+    return mock.getWeTrace(sessionId);
+  },
   async getResult(sessionId) {
+    // Fixture sessions go through the REAL adapter (toResult), so they exercise the same mapping as the server.
+    const fx = fixtureResult(sessionId);
+    if (fx) {
+      if (fx.slow) await new Promise((r) => setTimeout(r, 6000));
+      return toResult(fx.raw, { ...FIXTURE_META, sessionId } as SessionMeta);
+    }
     const r = await mock.getResult(sessionId);
     // The mock's decision rows carry no `isChange`; derive it (a row is a change
     // when the chosen pitcher differs from the previous row's, the first row vs.
@@ -88,7 +101,15 @@ export const mockApi: ApiSurface = {
       prev = d.chosenPitcherId;
       return { ...d, isChange };
     });
-    return { ...r, decisions };
+    return {
+      ...r,
+      decisions: withActualChange(decisions, r.actualPitcherUsage[0]?.pitcherId),
+      modelComparison: {
+        ...r.modelComparison,
+        myChanges: decisions.filter((d) => d.isChange).length,
+        actualChanges: r.actualPitcherChanges,
+      },
+    };
   },
   getRepeatSimulation: (sessionId, n) => mock.getRepeatSimulation(sessionId, n),
 };

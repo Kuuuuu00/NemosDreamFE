@@ -1,4 +1,4 @@
-import type { BaseState, DecisionLogEntry, Half, PitcherUsageSegment } from "@/types/api";
+import type { BaseState, DecisionLogEntry, Half, PitcherUsageSegment, SimulationResult } from "@/types/api";
 
 function halfLabel(half: Half): "초" | "말" {
   return half === "top" ? "초" : "말";
@@ -40,22 +40,42 @@ export function inningHalfLabel(inning: number, half: Half): string {
   return `${inning}회${halfLabel(half)}`;
 }
 
-export function modelTop(d: DecisionLogEntry): { name: string } | null {
-  return d.modelTop ?? d.modelRanking[0] ?? null;
+/** Rank shown for a pitcher on a row: the server's rank first, then the mock's full ranking. */
+export function rankOf(d: DecisionLogEntry, who: "mine" | "actual"): number | null {
+  const id = who === "mine" ? d.chosenPitcherId : d.actualPitcherId;
+  const direct = who === "mine" ? d.chosenModelRank : d.actualModelRank;
+  return direct ?? d.modelRanking.find((c) => c.pitcherId === id)?.modelRank ?? null;
 }
 
-/** "이름 (N위)" — the model's rank as a reference, never a verdict.
- * Name comes from the server row when present; rank is omitted when null
- * (TODO(backend): model rank fields are null for now). */
-export function choiceWithRank(d: DecisionLogEntry, pitcherId: number | null): string | null {
-  if (pitcherId === null) return null;
-  const isMine = pitcherId === d.chosenPitcherId;
-  const isActual = pitcherId === d.actualPitcherId;
-  const found = d.modelRanking.find((c) => c.pitcherId === pitcherId);
-  const name = (isMine ? d.chosenName : isActual ? d.actualName : null) ?? found?.name ?? null;
-  if (!name) return null;
-  const rank = (isMine ? d.chosenModelRank : isActual ? d.actualModelRank : null) ?? found?.modelRank ?? null;
-  return rank === null ? name : `${name} (${rank}위)`;
+export function nameOf(d: DecisionLogEntry, who: "mine" | "actual"): string | null {
+  const id = who === "mine" ? d.chosenPitcherId : d.actualPitcherId;
+  if (id === null) return null;
+  const direct = who === "mine" ? d.chosenName : d.actualName;
+  return direct ?? d.modelRanking.find((c) => c.pitcherId === id)?.name ?? null;
+}
+
+/** Two-line summary of the comparison. `line2 === null` hides the line. */
+export function comparisonSummary(c: SimulationResult["modelComparison"]): { line1: string; line2: string | null } {
+  const line1 =
+    c.decisionCount === 0
+      ? "이 세션에서는 비교할 결정이 없습니다."
+      : c.sameAsActual !== undefined
+        ? `${c.decisionCount}번의 결정 중 ${c.sameAsActual}번이 실제 감독과 같았습니다.`
+        : `${c.decisionCount}번의 결정을 내렸습니다.`;
+  // my_changes = 0 needs no model data, so it wins over the null-hides rule.
+  if (c.myChanges === 0) return { line1, line2: "이번 경기에서는 투수를 교체하지 않았습니다." };
+  // Hidden when a number the sentence needs is missing (model ranking unavailable).
+  const actualNeeded = (c.actualChanges ?? 1) > 0;
+  if (c.myChanges === undefined || c.myWithinTopK === null || (actualNeeded && c.actualWithinTopK === null)) {
+    return { line1, line2: null };
+  }
+  let line2 = `교체 ${c.myChanges}회 중 ${c.myWithinTopK}회가 모델 상위 ${c.topK}위 이내였습니다.`;
+  if (actualNeeded) line2 += ` 실제 감독은 ${c.actualChanges}회 중 ${c.actualWithinTopK}회였습니다.`;
+  return { line1, line2 };
+}
+
+export function modelTop(d: DecisionLogEntry): { name: string } | null {
+  return d.modelTop ?? d.modelRanking[0] ?? null;
 }
 
 /** Default view = decisions that actually changed the pitcher. `isChange` is

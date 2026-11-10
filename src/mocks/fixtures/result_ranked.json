@@ -1,0 +1,215 @@
+{
+ "simulated": {
+  "score": {
+   "my": 2,
+   "opp": 4
+  },
+  "runs_allowed_in_range": 0,
+  "final_we": 0.0,
+  "result": "loss"
+ },
+ "actual": {
+  "score": {
+   "my": 2,
+   "opp": 4
+  },
+  "runs_allowed_in_range": 0,
+  "final_we": 0.0,
+  "result": "loss"
+ },
+ "pitcher_usage": [
+  {
+   "pitcher_id": 52701,
+   "name": "문동주",
+   "from": {
+    "inning": 7,
+    "half": "bot",
+    "pa": 0
+   },
+   "to": {
+    "inning": 7,
+    "half": "bot",
+    "pa": 2
+   },
+   "delta_we_defender": 0.0314,
+   "pitches_est": 12,
+   "li_at_entry": 0.3982
+  },
+  {
+   "pitcher_id": 54755,
+   "name": "와이스",
+   "from": {
+    "inning": 8,
+    "half": "bot",
+    "pa": 0
+   },
+   "to": {
+    "inning": 8,
+    "half": "bot",
+    "pa": 3
+   },
+   "delta_we_defender": 0.0314,
+   "pitches_est": 15,
+   "li_at_entry": 0.3982
+  }
+ ],
+ "actual_pitcher_usage": [
+  {
+   "pitcher_id": 52701,
+   "name": "문동주",
+   "from": {
+    "inning": 7,
+    "half": "bot",
+    "pa": 0
+   },
+   "to": {
+    "inning": 8,
+    "half": "bot",
+    "pa": 2
+   },
+   "delta_we_defender": 0.0628,
+   "pitches_est": 22,
+   "li_at_entry": 0.3982
+  }
+ ],
+ "decisions": [
+  {
+   "inning": 7,
+   "half": "bot",
+   "leverage_index": 0.3982,
+   "model_top": null,
+   "user_choice": {
+    "pitcher_id": 52701,
+    "name": "문동주",
+    "model_rank": null
+   },
+   "actual_choice": {
+    "pitcher_id": 52701,
+    "name": "문동주",
+    "model_rank": null
+   },
+   "outcome": "SO",
+   "delta_we_defender": 0.0076,
+   "is_change": false
+  },
+  {
+   "inning": 7,
+   "half": "bot",
+   "leverage_index": 0.3295,
+   "model_top": null,
+   "user_choice": {
+    "pitcher_id": 52701,
+    "name": "문동주",
+    "model_rank": null
+   },
+   "actual_choice": {
+    "pitcher_id": 52701,
+    "name": "문동주",
+    "model_rank": null
+   },
+   "outcome": "SO",
+   "delta_we_defender": 0.0046,
+   "is_change": false
+  },
+  {
+   "inning": 7,
+   "half": "bot",
+   "leverage_index": 0.4705,
+   "model_top": null,
+   "user_choice": {
+    "pitcher_id": 52701,
+    "name": "문동주",
+    "model_rank": null
+   },
+   "actual_choice": {
+    "pitcher_id": 52701,
+    "name": "문동주",
+    "model_rank": null
+   },
+   "outcome": "SO",
+   "delta_we_defender": 0.0192,
+   "is_change": false
+  },
+  {
+   "inning": 8,
+   "half": "bot",
+   "leverage_index": 0.3982,
+   "model_top": {
+    "pitcher_id": 54755,
+    "name": "와이스"
+   },
+   "user_choice": {
+    "pitcher_id": 54755,
+    "name": "와이스",
+    "model_rank": 2
+   },
+   "actual_choice": {
+    "pitcher_id": 52701,
+    "name": "문동주",
+    "model_rank": 5
+   },
+   "outcome": "1B",
+   "delta_we_defender": -0.0185,
+   "is_change": true
+  },
+  {
+   "inning": 8,
+   "half": "bot",
+   "leverage_index": 0.5492,
+   "model_top": null,
+   "user_choice": {
+    "pitcher_id": 54755,
+    "name": "와이스",
+    "model_rank": null
+   },
+   "actual_choice": null,
+   "outcome": "FO",
+   "delta_we_defender": 0.0131,
+   "is_change": false
+  },
+  {
+   "inning": 8,
+   "half": "bot",
+   "leverage_index": 0.5281,
+   "model_top": null,
+   "user_choice": {
+    "pitcher_id": 54755,
+    "name": "와이스",
+    "model_rank": null
+   },
+   "actual_choice": null,
+   "outcome": "FO",
+   "delta_we_defender": 0.0092,
+   "is_change": false
+  },
+  {
+   "inning": 8,
+   "half": "bot",
+   "leverage_index": 0.6558,
+   "model_top": null,
+   "user_choice": {
+    "pitcher_id": 54755,
+    "name": "와이스",
+    "model_rank": null
+   },
+   "actual_choice": null,
+   "outcome": "SO",
+   "delta_we_defender": 0.0276,
+   "is_change": false
+  }
+ ],
+ "agreement": {
+  "total_decisions": 7,
+  "mine_in_top3": 1,
+  "actual_in_top3": 0,
+  "same_as_actual": 3,
+  "my_changes": 1,
+  "actual_changes": 0
+ },
+ "bullpen_used": {
+  "mine": 3,
+  "actual": 2,
+  "total": 15
+ },
+ "_fixture_note": "synthetic: model ranks present"
+}

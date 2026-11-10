@@ -243,7 +243,15 @@ export interface RawResult {
   pitcher_usage: RawPitcherUsage[];
   actual_pitcher_usage: RawPitcherUsage[];
   decisions: RawDecisionRow[];
-  agreement: { total_decisions: number; mine_in_top3: number | null; actual_in_top3: number | null; same_as_actual: number };
+  agreement: {
+    total_decisions: number;
+    mine_in_top3: number | null;
+    actual_in_top3: number | null;
+    same_as_actual: number;
+    /** Absent in the oldest recorded samples. */
+    my_changes?: number;
+    actual_changes?: number;
+  };
   bullpen_used: { mine: number; actual: number; total: number };
 }
 

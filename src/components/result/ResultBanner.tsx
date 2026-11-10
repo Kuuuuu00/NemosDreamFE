@@ -16,6 +16,17 @@ function winLossLabel(kind: ResultKind): string {
   }
 }
 
+function ResultTag({ kind, mine }: { kind: ResultKind; mine: boolean }) {
+  if (kind === "in_progress") {
+    return <span className="rounded-full border border-primary px-2.5 py-0.5 text-[12px] text-primary">진행 중</span>;
+  }
+  return (
+    <span className="text-[15px]" style={{ color: mine && kind === "win" ? "var(--primary)" : "var(--muted-foreground)" }}>
+      {winLossLabel(kind)}
+    </span>
+  );
+}
+
 interface ResultBannerProps {
   result: SimulationResult;
   teamName: (code: string) => string;
@@ -47,9 +58,7 @@ export function ResultBanner({ result, teamName }: ResultBannerProps) {
           <TeamEmblem code={result.oppTeam} name={teamName(result.oppTeam)} size={24} />
         </span>
         <div className="flex items-baseline gap-3.5">
-          <span className="text-[15px]" style={{ color: myResult === "win" ? "var(--primary)" : "var(--muted-foreground)" }}>
-            {winLossLabel(myResult)}
-          </span>
+          <ResultTag kind={myResult} mine />
           <span className="text-[13px] text-muted-foreground">
             {inningRangeLabel(startInning)} 실점 {runsAllowedInRange.mine}
           </span>
@@ -77,7 +86,7 @@ export function ResultBanner({ result, teamName }: ResultBannerProps) {
           <TeamEmblem code={result.oppTeam} name={teamName(result.oppTeam)} size={24} />
         </span>
         <div className="flex items-baseline gap-3.5">
-          <span className="text-[15px] text-muted-foreground">{winLossLabel(actualResult)}</span>
+          <ResultTag kind={actualResult} mine={false} />
           <span className="text-[13px] text-muted-foreground">
             {inningRangeLabel(startInning)} 실점 {runsAllowedInRange.actual}
           </span>

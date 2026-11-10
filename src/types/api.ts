@@ -371,6 +371,10 @@ export interface DecisionLogEntry {
   actualName?: string | null;
   chosenModelRank?: number | null;
   actualModelRank?: number | null;
+  /** Did the real manager change pitchers at this row? Derived by the adapter
+   * (actual pitcher differs from the previous known actual pitcher). null when
+   * `actual_choice` is null (past the divergence point). */
+  actualIsChange?: boolean | null;
   /** Model's #1 at that moment, or null while the backend's model ranking is unavailable. */
   modelTop?: { pitcherId: number; name: string } | null;
   outcome: PAOutcomeCode;
@@ -416,6 +420,9 @@ export interface SimulationResult {
     actualWithinTopK: number | null;
     /** Real backend only: decisions identical to the real manager's. */
     sameAsActual?: number;
+    /** `agreement.my_changes` / `actual_changes` — the denominators of the top-3 sentence. */
+    myChanges?: number;
+    actualChanges?: number;
   };
 }
 

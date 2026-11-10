@@ -74,6 +74,22 @@ function toDecision(d: RawDecisionRow): DecisionLogEntry {
   };
 }
 
+/**
+ * Marks whether the real manager changed pitchers on each row: his pitcher
+ * differs from the previous known one (the first row is compared with the
+ * pitcher he started the range with). Rows past the divergence point
+ * (`actualPitcherId === null`) get null and don't move the baseline.
+ */
+export function withActualChange(decisions: DecisionLogEntry[], startPitcherId: number | undefined): DecisionLogEntry[] {
+  let prev = startPitcherId;
+  return decisions.map((d) => {
+    if (d.actualPitcherId === null) return { ...d, actualIsChange: null };
+    const changed = prev !== undefined && d.actualPitcherId !== prev;
+    prev = d.actualPitcherId;
+    return { ...d, actualIsChange: changed };
+  });
+}
+
 export function toResult(r: RawResult, meta: SessionMeta): SimulationResult {
   const result = toKind(r.simulated.result);
   const actualResult = toKind(r.actual.result);
@@ -94,7 +110,7 @@ export function toResult(r: RawResult, meta: SessionMeta): SimulationResult {
     weDiffReferenceLabel: "최종 승률 · 실제 경기 대비",
     pitcherUsage: r.pitcher_usage.map((u) => toSegment(u)),
     actualPitcherUsage: r.actual_pitcher_usage.map((u) => toSegment(u)),
-    decisions: r.decisions.map(toDecision),
+    decisions: withActualChange(r.decisions.map(toDecision), r.actual_pitcher_usage[0]?.pitcher_id),
     pitcherChanges: Math.max(0, r.pitcher_usage.length - 1),
     actualPitcherChanges: Math.max(0, r.actual_pitcher_usage.length - 1),
     bullpenUsed: r.bullpen_used.mine,
@@ -107,6 +123,8 @@ export function toResult(r: RawResult, meta: SessionMeta): SimulationResult {
       actualComparableCount: r.decisions.filter((d) => d.actual_choice !== null).length,
       actualWithinTopK: r.agreement.actual_in_top3,
       sameAsActual: r.agreement.same_as_actual,
+      myChanges: r.agreement.my_changes,
+      actualChanges: r.agreement.actual_changes,
     },
   };
 }
