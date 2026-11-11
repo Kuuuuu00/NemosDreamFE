@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef } from "react";
+import { OVERLAY_TINT_ALPHA } from "@/lib/transitionTiming";
 
 interface InningTransitionProps {
   inning: number;
@@ -31,7 +32,8 @@ function InningTransitionImpl({ inning, half, subtitle, onComplete }: InningTran
 
   const label = `${inning}회${half === "top" ? "초" : "말"}`;
   return (
-    <div className="inning-overlay" role="status" aria-live="polite">
+    <div className="inning-overlay"
+      style={{ background: `rgba(6, 6, 8, ${OVERLAY_TINT_ALPHA})` }} role="status" aria-live="polite">
       <div className="inning-line" style={{ marginBottom: 14 }} />
       <div className="inning-text">{label}</div>
       <div className="inning-line inning-line--b" style={{ marginTop: 14 }} />

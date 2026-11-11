@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { OVERLAY_TINT_ALPHA } from "@/lib/transitionTiming";
 import { outcomeTone } from "@/lib/outcomeDisplay";
 import type { PAOutcomeCode } from "@/types/api";
 
@@ -52,6 +53,7 @@ export function OffenseHalfOverlay({ inning, half, myTeamName, summary, onComple
   return (
     <div
       className="offense-overlay"
+      style={{ background: `rgba(6, 6, 8, ${OVERLAY_TINT_ALPHA})` }}
       role="status"
       aria-live="polite"
       aria-label={label}

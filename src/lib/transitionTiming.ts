@@ -27,4 +27,7 @@ export const OVERLAY_SETTLE_MS = 450;
 /** Blur (px) of the dashboard behind the half-inning overlays. 0 = no blur (plain dark backdrop, cheapest).
  * The blur is a separate static layer that switches on once the overlay's dark layer is (almost) opaque —
  * it is never animated, and never sits under an element whose opacity is animated. */
-export const OVERLAY_BACKDROP_BLUR = 2;
+export const OVERLAY_BACKDROP_BLUR = 0;
+
+/** Dark tint of the overlays. Without the blur the dashboard stays sharp underneath, so the tint is a bit darker. */
+export const OVERLAY_TINT_ALPHA = OVERLAY_BACKDROP_BLUR > 0 ? 0.72 : 0.8;
