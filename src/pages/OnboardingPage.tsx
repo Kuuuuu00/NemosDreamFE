@@ -3,6 +3,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ErrorBanner } from "@/components/common/ErrorBanner";
 import { Button } from "@/components/ui/button";
+import { teamName } from "@/lib/teamName";
 import { GamePicker } from "@/components/onboarding/GamePicker";
 import { InningPicker } from "@/components/onboarding/InningPicker";
 import { StepCard } from "@/components/onboarding/StepCard";
@@ -52,8 +53,8 @@ export default function OnboardingPage() {
   const opponentTeams = useMemo(() => teams.filter((t) => t.code !== myTeam), [teams, myTeam]);
   const selectedGame = useMemo(() => games.find((g) => g.gameId === gameId) ?? null, [games, gameId]);
 
-  const myTeamName = teams.find((t) => t.code === myTeam)?.name ?? "";
-  const oppTeamName = teams.find((t) => t.code === oppTeam)?.name ?? "";
+  const myTeamName = myTeam ? teamName(myTeam) : "";
+  const oppTeamName = oppTeam ? teamName(oppTeam) : "";
 
   const done1 = !!myTeam;
   const done2 = !!oppTeam;
@@ -146,7 +147,7 @@ export default function OnboardingPage() {
             label="경기"
             open={s3.open}
             onReopen={s3.onReopen}
-            summary={selectedGame ? `${selectedGame.date} · ${selectedGame.away} ${selectedGame.finalScore.away} : ${selectedGame.finalScore.home} ${selectedGame.home}` : ""}
+            summary={selectedGame ? `${selectedGame.date} · ${teamName(selectedGame.away)} ${selectedGame.finalScore.away} : ${selectedGame.finalScore.home} ${teamName(selectedGame.home)}` : ""}
           >
             {gamesError && <ErrorBanner error={gamesError} onRetry={retryGames} className="mb-3" />}
             <GamePicker games={games} loading={gamesLoading} selectedGameId={gameId} onSelect={pickGame} />

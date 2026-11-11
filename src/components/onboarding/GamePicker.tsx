@@ -1,3 +1,4 @@
+import { teamName } from "@/lib/teamName";
 import { useState } from "react";
 import { TeamEmblem } from "@/components/common/TeamEmblem";
 import { cn } from "@/lib/utils";
@@ -60,10 +61,10 @@ export function GamePicker({ games, loading = false, selectedGameId, onSelect }:
               <span className="truncate text-[13px] text-muted-foreground">{g.date}</span>
               <span className="flex min-w-0 items-center gap-1.5 truncate text-sm">
                 <TeamEmblem code={g.away} size={20} />
-                {g.away} {g.finalScore.away} : {g.finalScore.home} {g.home}
+                {teamName(g.away)} {g.finalScore.away} : {g.finalScore.home} {teamName(g.home)}
                 <TeamEmblem code={g.home} size={20} />
               </span>
-              <span className="truncate text-right text-xs text-muted-foreground">{g.home}</span>
+              <span className="truncate text-right text-xs text-muted-foreground">{teamName(g.home)}</span>
             </button>
           );
         })}

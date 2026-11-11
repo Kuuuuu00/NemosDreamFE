@@ -27,6 +27,7 @@ import { ErrorBanner } from "@/components/common/ErrorBanner";
 import { useConfig } from "@/hooks/useConfig";
 import { useExpiredRedirect } from "@/hooks/useExpiredRedirect";
 import { useTeams } from "@/hooks/useTeams";
+import { teamName } from "@/lib/teamName";
 import { OUTCOME_LABELS } from "@/lib/outcomeDisplay";
 import { EFFECT_SAFETY_MS, MIN_OFFENSE_OVERLAY_MS, OVERLAY_BACKDROP_BLUR, OVERLAY_SETTLE_MS, holdAfterEffectMs } from "@/lib/transitionTiming";
 import type { AdvanceHalfSummary } from "@/types/api";
@@ -49,7 +50,7 @@ export default function GameDashboardPage() {
   const { params, resumeSessionId, clear } = useSessionParams();
   const navigate = useNavigate();
   const { theme, toggle } = useTheme();
-  const teams = useTeams();
+  const teams = useTeams(); // loads /teams once; teamName() reads the result, and this re-renders the page when it lands
   const config = useConfig();
   const session = useGameSession(params, resumeSessionId);
   const {
@@ -164,10 +165,6 @@ export default function GameDashboardPage() {
     [history.log],
   );
 
-  const teamName = useMemo(() => {
-    const map = new Map(teams.map((t) => [t.code, t.name]));
-    return (code: string) => map.get(code) ?? code;
-  }, [teams]);
 
   // Stable identities for memoised cards: the real handlers are re-created every render (they close over
   // state), so cards get these thin wrappers that always call the latest one.

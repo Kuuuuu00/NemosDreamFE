@@ -17,6 +17,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { useExpiredRedirect } from "@/hooks/useExpiredRedirect";
 import { useSessionResult } from "@/hooks/useSessionResult";
 import { useTeams } from "@/hooks/useTeams";
+import { teamName } from "@/lib/teamName";
 import { visibleDecisions } from "@/lib/resultDisplay";
 
 export default function ResultPage() {
@@ -24,7 +25,7 @@ export default function ResultPage() {
   const navigate = useNavigate();
   const { theme, toggle } = useTheme();
   const { clear } = useSessionParams();
-  const teams = useTeams();
+  useTeams(); // loads /teams once; teamName() reads the result, and this re-renders the page when it lands
   const { result, weTrace, status, error, reload, repeat, repeatOpen, repeatLoading, repeatError, toggleRepeat } = useSessionResult(sessionId);
   useExpiredRedirect(error); // SESSION_EXPIRED → onboarding with a notice
 
@@ -32,10 +33,6 @@ export default function ResultPage() {
   const [showAllPas, setShowAllPas] = useState(false);
   const decisions = useMemo(() => visibleDecisions(result?.decisions ?? [], showAllPas), [result, showAllPas]);
 
-  const teamName = useMemo(() => {
-    const map = new Map(teams.map((t) => [t.code, t.name]));
-    return (code: string) => map.get(code) ?? code;
-  }, [teams]);
 
   if (!sessionId) return <Navigate to="/" replace />;
   // Only an unrecoverable session (expired / metadata gone) leaves the page (useExpiredRedirect above).

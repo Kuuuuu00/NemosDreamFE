@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, isAbortError, isApiError, ApiRequestError } from "@/api";
+import { api, isAbortError, isApiError, ApiRequestError, USE_MOCK } from "@/api";
+import { setServerTeamNames } from "@/lib/teamName";
 import type { Team } from "@/types/api";
 
 /** Teams + load error + retry (onboarding shows a banner). `useTeams` is the plain list for other screens. */
@@ -14,6 +15,7 @@ export function useTeamsStatus() {
       .getTeams()
       .then((t) => {
         if (cancelled) return;
+        if (!USE_MOCK) setServerTeamNames(t); // mock names differ in spelling ("kt"): mock mode uses the fixed table
         setTeams(t);
         setError(null);
       })
