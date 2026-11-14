@@ -36,9 +36,10 @@ export const realApi: ApiSurface = {
     return (await request<RawTeam[]>("/api/v1/teams")).map(toTeam);
   },
 
-  async getGames(myTeam, oppTeam) {
+  async getGames(myTeam, oppTeam, season) {
     // `team` is required (400 otherwise) — never call before a team is chosen.
-    const list = await request<RawGameSummary[]>("/api/v1/games", { query: { team: myTeam, opponent: oppTeam } });
+    // `season` is sent only when given (the server default is 2025).
+    const list = await request<RawGameSummary[]>("/api/v1/games", { query: { team: myTeam, opponent: oppTeam, season } });
     return list.map(toGame);
   },
 

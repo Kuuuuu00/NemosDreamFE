@@ -25,7 +25,8 @@ export const mockApi: ApiSurface = {
   health: async () => true,
   getConfig: () => mock.getConfig(),
   getTeams: () => mock.getTeams(),
-  getGames: (myTeam, oppTeam) => mock.getGames(myTeam, oppTeam),
+  // The mock has no other seasons: a non-default season (demo games) is simply empty.
+  getGames: (myTeam, oppTeam, season) => (season !== undefined && season !== 2025 ? Promise.resolve([]) : mock.getGames(myTeam, oppTeam)),
   createSession: (params) => {
     pendingOffense.clear();
     return mock.createSession(params);

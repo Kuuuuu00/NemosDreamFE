@@ -937,6 +937,7 @@ export function buildResult(sessionId: string): SimulationResult {
   };
 
   return {
+    gameId: g.gameId,
     date: g.date,
     venue: g.venue,
     myTeam: s.myTeam,

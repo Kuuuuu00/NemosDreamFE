@@ -13,6 +13,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { useGames } from "@/hooks/useGames";
 import { useExpiredNotice } from "@/hooks/useExpiredRedirect";
 import { useTeamsStatus } from "@/hooks/useTeams";
+import { DEFAULT_SEASON } from "@/lib/demoGames";
 
 type StepN = 1 | 2 | 3 | 4;
 
@@ -28,6 +29,7 @@ export default function OnboardingPage() {
   const [oppTeam, setOppTeam] = useState<string | null>(null);
   const [gameId, setGameId] = useState<string | null>(null);
   const [startInning, setStartInning] = useState<number | null>(null);
+  const [season, setSeason] = useState<number>(DEFAULT_SEASON);
   const [editing, setEditing] = useState<StepN | null>(null);
 
   // The logo mark's height must match the title+subtitle block's rendered
@@ -48,7 +50,7 @@ export default function OnboardingPage() {
     return () => ro.disconnect();
   }, []);
 
-  const { games, loading: gamesLoading, error: gamesError, retry: retryGames } = useGames(myTeam, oppTeam);
+  const { games, loading: gamesLoading, error: gamesError, retry: retryGames } = useGames(myTeam, oppTeam, season);
 
   const opponentTeams = useMemo(() => teams.filter((t) => t.code !== myTeam), [teams, myTeam]);
   const selectedGame = useMemo(() => games.find((g) => g.gameId === gameId) ?? null, [games, gameId]);
@@ -67,8 +69,16 @@ export default function OnboardingPage() {
 
   const ready = done1 && done2 && done3 && done4;
 
+  function pickSeason(s: number) {
+    if (s === season) return;
+    setSeason(s);
+    setGameId(null);
+    setStartInning(null);
+    setEditing(3);
+  }
   function pickMyTeam(code: string) {
     setMyTeam(code);
+    setSeason(DEFAULT_SEASON);
     setOppTeam(null);
     setGameId(null);
     setStartInning(null);
@@ -76,6 +86,7 @@ export default function OnboardingPage() {
   }
   function pickOppTeam(code: string) {
     setOppTeam(code);
+    setSeason(DEFAULT_SEASON);
     setGameId(null);
     setStartInning(null);
     setEditing(3);
@@ -150,7 +161,16 @@ export default function OnboardingPage() {
             summary={selectedGame ? `${selectedGame.date} · ${teamName(selectedGame.away)} ${selectedGame.finalScore.away} : ${selectedGame.finalScore.home} ${teamName(selectedGame.home)}` : ""}
           >
             {gamesError && <ErrorBanner error={gamesError} onRetry={retryGames} className="mb-3" />}
-            <GamePicker games={games} loading={gamesLoading} selectedGameId={gameId} onSelect={pickGame} />
+            <GamePicker
+              games={games}
+              loading={gamesLoading}
+              selectedGameId={gameId}
+              onSelect={pickGame}
+              season={season}
+              onSeasonChange={pickSeason}
+              myTeam={myTeam}
+              oppTeam={oppTeam}
+            />
           </StepCard>
         )}
 

@@ -95,6 +95,7 @@ export function toResult(r: RawResult, meta: SessionMeta): SimulationResult {
   const actualResult = toKind(r.actual.result);
   const finalWeDiff = +(r.simulated.final_we - r.actual.final_we).toFixed(3);
   return {
+    gameId: meta.gameId,
     date: meta.date,
     venue: "", // not provided by the API
     myTeam: meta.myTeam,

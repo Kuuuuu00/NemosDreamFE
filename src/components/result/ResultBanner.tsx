@@ -1,6 +1,7 @@
 import { TeamEmblem } from "@/components/common/TeamEmblem";
 import { Card } from "@/components/ui/card";
 import type { ResultKind, SimulationResult } from "@/types/api";
+import { DEMO_TEXT, getDemoGame } from "@/lib/demoGames";
 import { inningRangeLabel } from "@/lib/resultDisplay";
 
 function winLossLabel(kind: ResultKind): string {
@@ -35,6 +36,7 @@ interface ResultBannerProps {
 export function ResultBanner({ result, teamName }: ResultBannerProps) {
   const { myFinalScore, actualFinalScore, result: myResult, actualResult, runsAllowedInRange, finalWeDiff, weDiffReferenceLabel, startInning } =
     result;
+  const demo = getDemoGame(result.gameId);
   const runDiff = runsAllowedInRange.mine - runsAllowedInRange.actual;
   const weDiffPct = +(finalWeDiff * 100).toFixed(1);
   const flat = runDiff === 0 && weDiffPct === 0;
@@ -91,6 +93,11 @@ export function ResultBanner({ result, teamName }: ResultBannerProps) {
             {inningRangeLabel(startInning)} 실점 {runsAllowedInRange.actual}
           </span>
         </div>
+        {demo && (
+          <span className="text-[11px] leading-[1.5] text-muted-foreground">
+            {DEMO_TEXT.resultPrefix} · {demo.actualResultNote}
+          </span>
+        )}
       </Card>
     </div>
   );

@@ -19,6 +19,7 @@ import { OffenseHalfOverlay } from "@/components/game/OffenseHalfOverlay";
 import { WinProbabilityChart } from "@/components/dashboard/WinProbabilityChart";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DEMO_TEXT, getDemoGame } from "@/lib/demoGames";
 import { useSessionParams } from "@/context/SessionContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useGameSession } from "@/hooks/useGameSession";
@@ -314,6 +315,12 @@ export default function GameDashboardPage() {
 
         {shownError && shownError.code !== "SESSION_EXPIRED" && <ErrorBanner error={shownError} onRetry={retry} onDismiss={clearError} />}
 
+        {getDemoGame(state.gameId) && (
+          <div className="flex px-1">
+            <span className="rounded border border-chart-5 px-1.5 py-0.5 text-[10px] text-chart-5">{DEMO_TEXT.badge}</span>
+          </div>
+        )}
+
         <ScoreHeader state={state} myTeamName={teamName(state.myTeam)} oppTeamName={teamName(state.opponentTeam)} />
 
         {weTrace && config && (
@@ -413,6 +420,7 @@ export default function GameDashboardPage() {
                       estimated={recommendData?.bullpenSource === "estimated"}
                       provisional={config?.model?.provisional ?? false}
                       noAvailable={noAvailablePitcher}
+                      demoNoSeason={!!getDemoGame(state.gameId)}
                     />
                   </div>
                   <div className="order-[33] md:order-none">

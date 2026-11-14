@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
+import { DEMO_TEXT } from "@/lib/demoGames";
 import { MATCHUP_LABEL } from "@/lib/handMatchup";
 import { cn } from "@/lib/utils";
 import type { ReliefCandidate, UsedPitcher } from "@/types/recommendation";
@@ -20,12 +21,14 @@ interface ReliefRankingListProps {
   provisional?: boolean;
   /** `recommend` answered NO_AVAILABLE_PITCHER (409): nothing to choose, only "stay". */
   noAvailable?: boolean;
+  /** Demo game: season stats are empty by design → one header note, blank per-row slots. */
+  demoNoSeason?: boolean;
 }
 
 const HAND: Record<string, string> = { L: "좌투", R: "우투", U: "언더" };
 const DASH = "—";
 
-function supportLine(c: ReliefCandidate): string {
+function supportLine(c: ReliefCandidate, demoNoSeason: boolean): string {
   const whip = c.whip !== undefined && c.whip !== null ? `WHIP ${c.whip.toFixed(2)}` : `WHIP ${DASH}`;
   // No games this season (`season.g === 0`): the server has no percentile for a known reason → say so.
   // Otherwise null/undefined percentile = unknown → dash, never "상위 100%".
@@ -40,7 +43,8 @@ function supportLine(c: ReliefCandidate): string {
   const fatigue = hasFatigue
     ? `연투 ${c.consecutiveDays ?? DASH}일, 최근 3일 ${c.pitchesLast3d ?? DASH}구`
     : `피로 ${DASH}`;
-  return [whip, quality, matchup, fatigue].join(" · ");
+  const parts = demoNoSeason ? [matchup, fatigue] : [whip, quality, matchup, fatigue];
+  return parts.join(" · ");
 }
 
 /** The raw model score is a normalized WPA/PA estimate, NOT a win-probability change (spec §3-6) — never show it as %p. */
@@ -58,6 +62,7 @@ function ReliefRankingListImpl({
   estimated,
   provisional = false,
   noAvailable = false,
+  demoNoSeason = false,
 }: ReliefRankingListProps) {
   // Min-max over the scored candidates only (differences between them are tiny; ties exist).
   const scores = candidates.map((c) => c.modelScore);
@@ -88,6 +93,10 @@ function ReliefRankingListImpl({
       <p className="mb-3 text-[11px] leading-[1.5] text-muted-foreground">
         모델은 교체 시 투입할 투수를 추천합니다. 교체 시점 판단은 포함하지 않습니다.
       </p>
+
+      {demoNoSeason && (
+        <p className="mb-3 text-[11px] leading-[1.5] text-chart-5">{DEMO_TEXT.noSeasonStats}</p>
+      )}
 
       {estimated && (
         <div className="mb-3 rounded-md bg-muted p-[9px_11px] text-[11px] leading-[1.5] text-chart-5">
@@ -143,7 +152,7 @@ function ReliefRankingListImpl({
                       {selected && <span className="text-[11px] text-foreground">· 모델 {c.modelRank}위</span>}
                     </span>
                     <span className="text-[11px] leading-[1.4] text-muted-foreground">
-                      {supportLine(c)}
+                      {supportLine(c, demoNoSeason)}
                     </span>
                   </span>
                   <span className="flex w-[116px] shrink-0 flex-col items-end gap-[5px]">

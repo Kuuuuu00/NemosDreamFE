@@ -35,7 +35,8 @@ export interface ApiSurface {
   health(): Promise<boolean>;
   getConfig(): Promise<AppConfig>;
   getTeams(): Promise<Team[]>;
-  getGames(myTeam: string, oppTeam: string): Promise<GameListItem[]>;
+  /** `season` omitted → the server default (2025). */
+  getGames(myTeam: string, oppTeam: string, season?: number): Promise<GameListItem[]>;
   createSession(params: SessionParams): Promise<{ state: GameState }>;
   /** `state` is only used by the mock (its ranking is computed from state); the real API ignores it. */
   recommend(sessionId: string, state: GameState): Promise<RecommendBundle>;

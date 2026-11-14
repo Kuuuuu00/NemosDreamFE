@@ -387,6 +387,7 @@ export interface DecisionLogEntry {
 export type ResultKind = "win" | "loss" | "tie" | "in_progress";
 
 export interface SimulationResult {
+  gameId: string;
   date: string;
   venue: string;
   myTeam: string;
